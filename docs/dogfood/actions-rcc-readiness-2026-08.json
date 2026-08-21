@@ -1,0 +1,794 @@
+{
+  "repos": [
+    {
+      "name": "joshyorko/actions",
+      "open_issue_count": 41,
+      "open_pr_count": 5,
+      "hive_ready_label_exists": true,
+      "issues": [
+        {
+          "number": 149,
+          "url": "https://github.com/joshyorko/actions/issues/149",
+          "title": "🐝 Hive Advisory Report",
+          "classification": "UMBRELLA_OR_PLANNING",
+          "evidence": "Hive-generated living advisory/report ledger, explicitly says not to close; not an independently executable work outcome.",
+          "relationships": []
+        },
+        {
+          "number": 148,
+          "url": "https://github.com/joshyorko/actions/issues/148",
+          "title": "Harden package import and compile Robot/runtime metadata into immutable Package Revisions",
+          "classification": "READY",
+          "evidence": "Independent executable outcome with no explicit Depends on/Blocked by declaration, no parked/hold language, and no owning open PR; Parent/Related metadata is non-blocking.",
+          "relationships": [
+            "Parent: #82",
+            "Related: #86, #87, #91, #125, #129, #130, #133, #135, #136, #140, #143, #144, #145, #146"
+          ]
+        },
+        {
+          "number": 147,
+          "url": "https://github.com/joshyorko/actions/issues/147",
+          "title": "Add typed internal capability invocation with pinned runtime plans and parent-child Runs",
+          "classification": "BLOCKED",
+          "evidence": "Independently scoped outcome, but its explicit Depends on declaration includes still-open hard dependencies #83, #129, #130, #143, #144; no open PR claims this issue.",
+          "relationships": [
+            "Parent: #82",
+            "Depends on: #83, #129, #130, #143, #144",
+            "Related: #85, #86, #87, #90, #92, #132, #133, #137, #138, #141, #142, #145, #146"
+          ]
+        },
+        {
+          "number": 146,
+          "url": "https://github.com/joshyorko/actions/issues/146",
+          "title": "Add one adapter-aware Actions Runtime CLI for capabilities, Robots, and development tasks",
+          "classification": "BLOCKED",
+          "evidence": "Independently scoped outcome, but its explicit Depends on declaration includes still-open hard dependencies #134, #143, #144; no open PR claims this issue.",
+          "relationships": [
+            "Parent: #82",
+            "Depends on: #134, #143, #144",
+            "Related: #83, #85, #86, #87, #90, #129, #130, #133, #137, #139, #142, #145, #147"
+          ]
+        },
+        {
+          "number": 145,
+          "url": "https://github.com/joshyorko/actions/issues/145",
+          "title": "Evolve Actions Runtime into a lightweight control room with a unified Run Composer",
+          "classification": "BLOCKED",
+          "evidence": "Independently scoped outcome, but its explicit Depends on declaration includes still-open hard dependencies #143, #144; no open PR claims this issue.",
+          "relationships": [
+            "Parent: #93",
+            "Depends on: #143, #144",
+            "Related: #71, #83, #85, #86, #87, #90, #92, #96, #97, #129, #132, #133, #137, #139, #141, #142, #146, #147, #148"
+          ]
+        },
+        {
+          "number": 144,
+          "url": "https://github.com/joshyorko/actions/issues/144",
+          "title": "Make Robot Tasks a first-class capability kind independent of runtime adapter",
+          "classification": "BLOCKED",
+          "evidence": "Independently scoped outcome, but its explicit Depends on declaration includes still-open hard dependencies #134, #143; no open PR claims this issue.",
+          "relationships": [
+            "Parent: #82",
+            "Depends on: #134, #143",
+            "Related: #83, #85, #86, #87, #89, #90, #129, #130, #132, #133, #135, #136, #137, #139, #141, #142, #145, #146, #147, #148"
+          ]
+        },
+        {
+          "number": 143,
+          "url": "https://github.com/joshyorko/actions/issues/143",
+          "title": "Define pluggable capability runtime adapters, shared admission, execution requirements, and preflight",
+          "classification": "READY",
+          "evidence": "Independent adapter/admission contract; “Grounded by” and Parent/Related references are metadata, not Depends on/Blocked by, and no open PR claims it.",
+          "relationships": [
+            "Parent: #82",
+            "Grounded by: #134, `joshyorko/rcc#118`, `joshyorko/rcc#120`",
+            "Related: #83, #87, #90, #129, #130, #132, #133, #138, #139, #142, #144, #145, #146, #147"
+          ]
+        },
+        {
+          "number": 142,
+          "url": "https://github.com/joshyorko/actions/issues/142",
+          "title": "Prove Robot Task execution across runtime adapters and local, container, and worker placements",
+          "classification": "BLOCKED",
+          "evidence": "Independently scoped outcome, but its explicit Depends on declaration includes still-open hard dependencies #143, #144; no open PR claims this issue.",
+          "relationships": [
+            "Parent: #90",
+            "Depends on: #143, #144",
+            "Related: #83, #85, #86, #87, #133, #134, #136, #138, #139, #140, #145, #146, #147"
+          ]
+        },
+        {
+          "number": 141,
+          "url": "https://github.com/joshyorko/actions/issues/141",
+          "title": "Define deterministic capability workflows over pinned runtime plans and Work Items",
+          "classification": "BLOCKED",
+          "evidence": "Independently scoped outcome, but its explicit Depends on declaration includes still-open hard dependencies #83, #85, #129, #130, #132, #143; no open PR claims this issue.",
+          "relationships": [
+            "Parent: #82",
+            "Depends on: #83, #85, #129, #130, #132, #143",
+            "Related: #86, #87, #92, #131, #137, #139, #144, #147"
+          ]
+        },
+        {
+          "number": 140,
+          "url": "https://github.com/joshyorko/actions/issues/140",
+          "title": "Package and operate collapsed and split capability Runtime deployments safely",
+          "classification": "BLOCKED",
+          "evidence": "Independently scoped outcome, but its explicit Depends on declaration includes still-open hard dependencies #84, #129, #137, #138; no open PR claims this issue.",
+          "relationships": [
+            "Parent: #82",
+            "Depends on: #84, #129, #137, #138",
+            "Related: #86, #87, #90, #133, #139, #143, #145"
+          ]
+        },
+        {
+          "number": 139,
+          "url": "https://github.com/joshyorko/actions/issues/139",
+          "title": "Build exact-subject capability, runtime-adapter, admission, Deployment, and worker conformance",
+          "classification": "READY",
+          "evidence": "Independent executable outcome with no explicit Depends on/Blocked by declaration, no parked/hold language, and no owning open PR; Parent/Related metadata is non-blocking.",
+          "relationships": [
+            "Parent: #82",
+            "Related: #83, #85, #90, #92, #129, #130, #132, #133, #134, #135, #136, #138, #142, #143, #144"
+          ]
+        },
+        {
+          "number": 138,
+          "url": "https://github.com/joshyorko/actions/issues/138",
+          "title": "Define a versioned Runtime-to-worker protocol for pinned runtime plans, adapters, and placements",
+          "classification": "BLOCKED",
+          "evidence": "Independently scoped outcome, but its explicit Depends on declaration includes still-open hard dependencies #83, #84, #129, #130, #143; no open PR claims this issue.",
+          "relationships": [
+            "Parent: #90",
+            "Depends on: #83, #84, #129, #130, #143",
+            "Related: #87, #133, #137, #139, #142"
+          ]
+        },
+        {
+          "number": 137,
+          "url": "https://github.com/joshyorko/actions/issues/137",
+          "title": "Define end-to-end provenance, audit, and OpenTelemetry across capability runtimes",
+          "classification": "READY",
+          "evidence": "Independent executable outcome with no explicit Depends on/Blocked by declaration, no parked/hold language, and no owning open PR; Parent/Related metadata is non-blocking.",
+          "relationships": [
+            "Parent: #82",
+            "Related: #83, #85, #86, #87, #88, #90, #129, #130, #131, #132, #133, #135, #136, #138, #139, #143"
+          ]
+        },
+        {
+          "number": 136,
+          "url": "https://github.com/joshyorko/actions/issues/136",
+          "title": "Define an immutable Package Revision registry/provider and worker-local source cache",
+          "classification": "BLOCKED",
+          "evidence": "Independently scoped outcome, but its explicit Depends on declaration includes still-open hard dependencies #135; no open PR claims this issue.",
+          "relationships": [
+            "Parent: #130",
+            "Depends on: #135",
+            "Related: #86, #87, #129, #133",
+            "Informs: #90"
+          ]
+        },
+        {
+          "number": 135,
+          "url": "https://github.com/joshyorko/actions/issues/135",
+          "title": "Compile current package directories into deterministic Package Revisions and runtime plans",
+          "classification": "READY",
+          "evidence": "Independent executable outcome with no explicit Depends on/Blocked by declaration, no parked/hold language, and no owning open PR; Parent/Related metadata is non-blocking.",
+          "relationships": [
+            "Parent: #130",
+            "Related: #129, #133, #134, #143, #144, #148",
+            "Informs: #83, #89, #90, #136, #139"
+          ]
+        },
+        {
+          "number": 134,
+          "url": "https://github.com/joshyorko/actions/issues/134",
+          "title": "Integrate RCC Environment Artifacts and execution as the first local Runtime Adapter",
+          "classification": "READY",
+          "evidence": "Independent RCC-adapter integration outcome; only Parent/Related references (including RCC #118/#120), no hard dependency or owning open PR.",
+          "relationships": [
+            "Parent: #133",
+            "Related: #82, #90, #130, #144, `joshyorko/rcc#118`, `joshyorko/rcc#120`",
+            "Informs: #83, #129, #135, #139"
+          ]
+        },
+        {
+          "number": 133,
+          "url": "https://github.com/joshyorko/actions/issues/133",
+          "title": "Use RCC/Holotree as the first full environment and execution adapter for Actions workers",
+          "classification": "BLOCKED",
+          "evidence": "Independently scoped outcome, but its explicit Depends on declaration includes still-open hard dependencies #129, #130; no open PR claims this issue.",
+          "relationships": [
+            "Parent: #82",
+            "Depends on: #129, #130",
+            "Informs: #83, #86, #87, #90, #134, #138, #139, #142, #144"
+          ]
+        },
+        {
+          "number": 132,
+          "url": "https://github.com/joshyorko/actions/issues/132",
+          "title": "Define durable Work Item queue, lease, review, and workflow semantics over capability Runs",
+          "classification": "BLOCKED",
+          "evidence": "Independently scoped outcome, but its explicit Depends on declaration includes still-open hard dependencies #83, #90, #129; no open PR claims this issue.",
+          "relationships": [
+            "Parent: #82",
+            "Depends on: #83, #90, #129",
+            "Informs: #85, #86, #92, #137, #141, #143, #144"
+          ]
+        },
+        {
+          "number": 131,
+          "url": "https://github.com/joshyorko/actions/issues/131",
+          "title": "Define an open provider-based data and knowledge plane for Actions",
+          "classification": "BLOCKED",
+          "evidence": "Independently scoped outcome, but its explicit Depends on declaration includes still-open hard dependencies #129, #130; no open PR claims this issue.",
+          "relationships": [
+            "Parent: #82",
+            "Depends on: #129, #130",
+            "Informs: #71, #86, #87, #90, #126, #127"
+          ]
+        },
+        {
+          "number": 130,
+          "url": "https://github.com/joshyorko/actions/issues/130",
+          "title": "Design Package v3 as an immutable capability bundle with pluggable runtime plans and exposure projections",
+          "classification": "BLOCKED",
+          "evidence": "Independently scoped outcome, but its explicit Depends on declaration includes still-open hard dependencies #129; no open PR claims this issue.",
+          "relationships": [
+            "Parent: #82",
+            "Depends on: #129",
+            "Informs: #71, #83, #89, #90, #120, #126, #127, #133, #135, #136, #139, #143, #144"
+          ]
+        },
+        {
+          "number": 129,
+          "url": "https://github.com/joshyorko/actions/issues/129",
+          "title": "Define workspace-scoped capability deployments, runtime-plan selection, immutable revisions, and bindings",
+          "classification": "READY",
+          "evidence": "Independent executable outcome with no explicit Depends on/Blocked by declaration, no parked/hold language, and no owning open PR; Parent/Related metadata is non-blocking.",
+          "relationships": [
+            "Parent: #82",
+            "Informs: #83, #85, #87, #89, #90, #91, #95, #130, #133, #138, #143, #144"
+          ]
+        },
+        {
+          "number": 127,
+          "url": "https://github.com/joshyorko/actions/issues/127",
+          "title": "feat: add a community Canvas template",
+          "classification": "PARKED",
+          "evidence": "Status says deferred, calls the issue a design placeholder, and says it is blocked until community product-surface cleanup (#125, still open).",
+          "relationships": [
+            "Blocked by the community product-surface cleanup issue"
+          ]
+        },
+        {
+          "number": 126,
+          "url": "https://github.com/joshyorko/actions/issues/126",
+          "title": "feat: add an MCP v2 capabilities showcase template",
+          "classification": "PARKED",
+          "evidence": "Status says deferred until community product-surface cleanup (#125, still open) and describes a separate design/implementation track.",
+          "relationships": [
+            "Blocked by the community product-surface cleanup issue"
+          ]
+        },
+        {
+          "number": 125,
+          "url": "https://github.com/joshyorko/actions/issues/125",
+          "title": "cleanup: remove Data Server and private-tier product surfaces",
+          "classification": "ACTIVE_WORK_EXISTS",
+          "evidence": "Draft PR #128 by joshyorko says “Progresses #125” and reports verification incomplete.",
+          "relationships": []
+        },
+        {
+          "number": 101,
+          "url": "https://github.com/joshyorko/actions/issues/101",
+          "title": "Run the Actions Runtime product, runtime-adapter, and control-room factory",
+          "classification": "UMBRELLA_OR_PLANNING",
+          "evidence": "Body explicitly calls this the live execution ledger and says child issues own architecture and acceptance details.",
+          "relationships": []
+        },
+        {
+          "number": 100,
+          "url": "https://github.com/joshyorko/actions/issues/100",
+          "title": "Define Canvas authoring contracts in actions-core without package proliferation",
+          "classification": "HUMAN_DECISION_REQUIRED",
+          "evidence": "One-line issue asks to “Decide and implement” the authoring surface; maintainer’s latest architecture note is explicitly evidence-only with no implementation authorization.",
+          "relationships": [
+            "Parent: #93",
+            "Related: #71 and #99"
+          ]
+        },
+        {
+          "number": 99,
+          "url": "https://github.com/joshyorko/actions/issues/99",
+          "title": "Build the shared CanvasSpec renderer and MCP App View foundation",
+          "classification": "BLOCKED",
+          "evidence": "Independently scoped outcome, but its explicit Depends on declaration includes still-open hard dependencies #97, #98; no open PR claims this issue.",
+          "relationships": [
+            "Parent: #93",
+            "Related: #71",
+            "Depends on: #80, #94, #95, #97, #98"
+          ]
+        },
+        {
+          "number": 98,
+          "url": "https://github.com/joshyorko/actions/issues/98",
+          "title": "Modernize the frontend toolchain and multi-artifact build pipeline",
+          "classification": "ACTIVE_WORK_EXISTS",
+          "evidence": "Draft PR #115 by joshyorko says “Progresses #98”; the issue’s umbrella #93 records exact-SHA review evidence for that lane.",
+          "relationships": [
+            "Parent: #93",
+            "Depends on: #94"
+          ]
+        },
+        {
+          "number": 97,
+          "url": "https://github.com/joshyorko/actions/issues/97",
+          "title": "Establish the Actions UI system and offline visual quality gates",
+          "classification": "READY",
+          "evidence": "Independent UI-system outcome; its only explicit hard dependency #94 is closed, and no open PR claims it.",
+          "relationships": [
+            "Parent: #93",
+            "Depends on: #94"
+          ]
+        },
+        {
+          "number": 96,
+          "url": "https://github.com/joshyorko/actions/issues/96",
+          "title": "Refresh the Actions Runtime product shell and overview",
+          "classification": "ACTIVE_WORK_EXISTS",
+          "evidence": "Two draft PRs by joshyorko reference this work: #112 says “Closes #96” and #119 says “Progresses #96”.",
+          "relationships": [
+            "Parent: #93",
+            "Depends on: #94, #95"
+          ]
+        },
+        {
+          "number": 93,
+          "url": "https://github.com/joshyorko/actions/issues/93",
+          "title": "Run the Actions Runtime frontend and product factory",
+          "classification": "UMBRELLA_OR_PLANNING",
+          "evidence": "Body explicitly says “This is an umbrella factory, not one giant PR” and enumerates child delivery order.",
+          "relationships": [
+            "Depends on #80 landing first"
+          ]
+        },
+        {
+          "number": 92,
+          "url": "https://github.com/joshyorko/actions/issues/92",
+          "title": "Implement durable capability interaction and human-review flows",
+          "classification": "BLOCKED",
+          "evidence": "Independently scoped outcome, but its explicit Depends on declaration includes still-open hard dependencies #83, #85, #87, #129, #143; no open PR claims this issue.",
+          "relationships": [
+            "Parent: #82",
+            "Depends on: #80, #83, #85, #87, #129, #143",
+            "Related: #71, #91, #132, #137, #141"
+          ]
+        },
+        {
+          "number": 91,
+          "url": "https://github.com/joshyorko/actions/issues/91",
+          "title": "Add MCP-native authorization and CIMD support",
+          "classification": "READY",
+          "evidence": "Independent authorization/CIMD outcome; its only explicit hard dependency #80 is closed, and no open PR claims it.",
+          "relationships": [
+            "Parent: #82",
+            "Depends on: #80"
+          ]
+        },
+        {
+          "number": 90,
+          "url": "https://github.com/joshyorko/actions/issues/90",
+          "title": "Separate capability execution ownership from Runtime request handling across adapters and placements",
+          "classification": "BLOCKED",
+          "evidence": "Independently scoped outcome, but its explicit Depends on declaration includes still-open hard dependencies #83, #84, #129, #130, #143; no open PR claims this issue.",
+          "relationships": [
+            "Parent: #82",
+            "Depends on: #83, #84, #129, #130, #143",
+            "Related: #86, #87, #131, #132, #133, #138, #142"
+          ]
+        },
+        {
+          "number": 87,
+          "url": "https://github.com/joshyorko/actions/issues/87",
+          "title": "Separate request context from Workspace-scoped bindings and runtime grants",
+          "classification": "BLOCKED",
+          "evidence": "Independently scoped outcome, but its explicit Depends on declaration includes still-open hard dependencies #84, #129; no open PR claims this issue.",
+          "relationships": [
+            "Parent: #82",
+            "Depends on: #84, #129",
+            "Related: #86, #91, #131, #132, #137, #143"
+          ]
+        },
+        {
+          "number": 86,
+          "url": "https://github.com/joshyorko/actions/issues/86",
+          "title": "Make capability artifacts and large-result handles replica-safe",
+          "classification": "BLOCKED",
+          "evidence": "Independently scoped outcome, but its explicit Depends on declaration includes still-open hard dependencies #83, #84, #129; no open PR claims this issue.",
+          "relationships": [
+            "Parent: #82",
+            "Depends on: #83, #84, #129",
+            "Related: #85, #87, #90, #131, #132, #137, #143"
+          ]
+        },
+        {
+          "number": 85,
+          "url": "https://github.com/joshyorko/actions/issues/85",
+          "title": "Back MCP Tasks with pinned capability Runs and runtime plans",
+          "classification": "BLOCKED",
+          "evidence": "Independently scoped outcome, but its explicit Depends on declaration includes still-open hard dependencies #83, #84, #129; no open PR claims this issue.",
+          "relationships": [
+            "Parent: #82",
+            "Depends on: #80, #83, #84, #129",
+            "Related: #86, #90, #92, #132, #137, #143"
+          ]
+        },
+        {
+          "number": 84,
+          "url": "https://github.com/joshyorko/actions/issues/84",
+          "title": "Support one shared SQLite/PostgreSQL Database abstraction in actions-runtime",
+          "classification": "ACTIVE_WORK_EXISTS",
+          "evidence": "Draft PR #109 by joshyorko says “Closes #84”; the issue names #109 as its implementation lane.",
+          "relationships": [
+            "Parent: #82",
+            "Blocks: #83, #85, #90, #129, #132",
+            "Implementation lane: #109"
+          ]
+        },
+        {
+          "number": 83,
+          "url": "https://github.com/joshyorko/actions/issues/83",
+          "title": "Make capability Run and Attempt ownership replica-safe across runtime adapters",
+          "classification": "BLOCKED",
+          "evidence": "Independently scoped outcome, but its explicit Depends on declaration includes still-open hard dependencies #84, #129; no open PR claims this issue.",
+          "relationships": [
+            "Parent: #82",
+            "Depends on: #80, #84, #129",
+            "Related: #130, #133, #143",
+            "Informs: #85, #90, #132, #138, #141, #147"
+          ]
+        },
+        {
+          "number": 82,
+          "url": "https://github.com/joshyorko/actions/issues/82",
+          "title": "Evolve Actions Runtime into a pluggable MCP-native capability runtime and lightweight control room",
+          "classification": "UMBRELLA_OR_PLANNING",
+          "evidence": "Body explicitly says “This is an umbrella roadmap” and delegates independently implementable child capabilities.",
+          "relationships": []
+        },
+        {
+          "number": 71,
+          "url": "https://github.com/joshyorko/actions/issues/71",
+          "title": "Add Action Canvas: a native MCP App foundry inside Action Server",
+          "classification": "UMBRELLA_OR_PLANNING",
+          "evidence": "Broad product foundry roadmap spans runtime, persistence, UI, generation, security, release, and consumes numerous child contracts; not a bounded independent work item.",
+          "relationships": []
+        }
+      ],
+      "prs": [
+        {
+          "number": 128,
+          "url": "https://github.com/joshyorko/actions/pull/128",
+          "title": "Remove gated product surfaces from Community",
+          "issue_references": [
+            "Progresses #125"
+          ]
+        },
+        {
+          "number": 119,
+          "url": "https://github.com/joshyorko/actions/pull/119",
+          "title": "test(frontend): add Runtime product evidence harness",
+          "issue_references": [
+            "Progresses #96"
+          ]
+        },
+        {
+          "number": 115,
+          "url": "https://github.com/joshyorko/actions/pull/115",
+          "title": "feat(frontend): modernize dual artifact build pipeline",
+          "issue_references": [
+            "Progresses #98"
+          ]
+        },
+        {
+          "number": 112,
+          "url": "https://github.com/joshyorko/actions/pull/112",
+          "title": "feat(frontend): refresh the Actions Runtime product shell",
+          "issue_references": [
+            "Closes #96"
+          ]
+        },
+        {
+          "number": 109,
+          "url": "https://github.com/joshyorko/actions/pull/109",
+          "title": "feat: support shared Runtime database backends",
+          "issue_references": [
+            "Closes #84"
+          ]
+        }
+      ],
+      "ready_issue_numbers": [
+        148,
+        143,
+        139,
+        137,
+        135,
+        134,
+        129,
+        97,
+        91
+      ]
+    },
+    {
+      "name": "joshyorko/rcc",
+      "open_issue_count": 10,
+      "open_pr_count": 1,
+      "hive_ready_label_exists": true,
+      "issues": [
+        {
+          "number": 127,
+          "url": "https://github.com/joshyorko/rcc/issues/127",
+          "title": "Coordinate cold environment builds and cache prewarming without a shared writable Holotree",
+          "classification": "READY",
+          "evidence": "Independent executable outcome with no explicit Depends on/Blocked by declaration, no parked/hold language, and no owning open PR; Parent/Related metadata is non-blocking.",
+          "relationships": [
+            "Parent: #118",
+            "Related: #120, #121, #123, #125, #126",
+            "Consumers: `joshyorko/actions#90`, `joshyorko/actions#129`, `joshyorko/actions#133`"
+          ]
+        },
+        {
+          "number": 126,
+          "url": "https://github.com/joshyorko/rcc/issues/126",
+          "title": "Add Environment Artifact provenance, SBOM, signatures, revocation, and trust policy",
+          "classification": "READY",
+          "evidence": "Independent executable outcome with no explicit Depends on/Blocked by declaration, no parked/hold language, and no owning open PR; Parent/Related metadata is non-blocking.",
+          "relationships": [
+            "Parent: #118",
+            "Related: #120, #123, #124",
+            "Consumers: `joshyorko/actions#87`, `joshyorko/actions#90`, `joshyorko/actions#130`, `joshyorko/actions#133`"
+          ]
+        },
+        {
+          "number": 125,
+          "url": "https://github.com/joshyorko/rcc/issues/125",
+          "title": "Build an evidence-driven Holotree benchmark suite and select materializer/storage optimizations",
+          "classification": "READY",
+          "evidence": "Independent executable outcome with no explicit Depends on/Blocked by declaration, no parked/hold language, and no owning open PR; Parent/Related metadata is non-blocking.",
+          "relationships": [
+            "Parent: #118",
+            "Consumers: `joshyorko/actions#90`, `joshyorko/actions#133`"
+          ]
+        },
+        {
+          "number": 124,
+          "url": "https://github.com/joshyorko/rcc/issues/124",
+          "title": "Converge Hololib ZIP, robot bundles, offline archives, and OCI carriers on Manifest v1 identity",
+          "classification": "READY",
+          "evidence": "Independent executable outcome with no explicit Depends on/Blocked by declaration, no parked/hold language, and no owning open PR; Parent/Related metadata is non-blocking.",
+          "relationships": [
+            "Parent: #118",
+            "Release lane: #120",
+            "Related: #123"
+          ]
+        },
+        {
+          "number": 123,
+          "url": "https://github.com/joshyorko/rcc/issues/123",
+          "title": "Production-harden Environment Artifact providers for enterprise networks, resumable transfer, quotas, and retention",
+          "classification": "READY",
+          "evidence": "Independent executable outcome with no explicit Depends on/Blocked by declaration, no parked/hold language, and no owning open PR; Parent/Related metadata is non-blocking.",
+          "relationships": [
+            "Parent: #118",
+            "Release lane: #120",
+            "Related: #122",
+            "Consumers: `joshyorko/actions#87`, `joshyorko/actions#90`, `joshyorko/actions#133`"
+          ]
+        },
+        {
+          "number": 122,
+          "url": "https://github.com/joshyorko/rcc/issues/122",
+          "title": "Complete environment lease, crash recovery, repair, and garbage-collection semantics",
+          "classification": "READY",
+          "evidence": "Independent executable outcome with no explicit Depends on/Blocked by declaration, no parked/hold language, and no owning open PR; Parent/Related metadata is non-blocking.",
+          "relationships": [
+            "Parent: #118",
+            "Release lane: #120",
+            "Consumers: `joshyorko/actions#83`, `joshyorko/actions#90`, `joshyorko/actions#133`"
+          ]
+        },
+        {
+          "number": 121,
+          "url": "https://github.com/joshyorko/rcc/issues/121",
+          "title": "Prove Environment Artifact portability and compatibility on every supported RCC platform",
+          "classification": "READY",
+          "evidence": "Independent executable outcome with no explicit Depends on/Blocked by declaration, no parked/hold language, and no owning open PR; Parent/Related metadata is non-blocking.",
+          "relationships": [
+            "Parent: #118",
+            "Release lane: #120",
+            "Consumer: `joshyorko/actions#133`"
+          ]
+        },
+        {
+          "number": 120,
+          "url": "https://github.com/joshyorko/rcc/issues/120",
+          "title": "Ship Environment Artifacts v1 in RCC v18.19.0 and freeze the v18 compatibility contract",
+          "classification": "ACTIVE_WORK_EXISTS",
+          "evidence": "Draft PR #119 by joshyorko says “Progresses #118 and #120”; #120 also names that PR/branch as active implementation.",
+          "relationships": [
+            "Parent: #118",
+            "Consumer: `joshyorko/actions#133`",
+            "Active implementation branch: `feature/environment-artifacts-v1`"
+          ]
+        },
+        {
+          "number": 118,
+          "url": "https://github.com/joshyorko/rcc/issues/118",
+          "title": "Make Holotree the cloud-native environment engine: cryptographic artifacts, providers, node-local materialization, and leases",
+          "classification": "UMBRELLA_OR_PLANNING",
+          "evidence": "Program roadmap is parent of #120–#127; maintainer triage says it was split into independently reviewable child outcomes.",
+          "relationships": []
+        },
+        {
+          "number": 98,
+          "url": "https://github.com/joshyorko/rcc/issues/98",
+          "title": "Patchraptor Dependency Dashboard",
+          "classification": "HUMAN_DECISION_REQUIRED",
+          "evidence": "Renovate Dependency Dashboard is a generated ledger whose only actionable entry is under “Pending Approval” with an unchecked approval box.",
+          "relationships": []
+        }
+      ],
+      "prs": [
+        {
+          "number": 119,
+          "url": "https://github.com/joshyorko/rcc/pull/119",
+          "title": "feat: add portable Environment Artifacts and provider profiles",
+          "issue_references": [
+            "Progresses #118",
+            "Progresses #120"
+          ]
+        }
+      ],
+      "ready_issue_numbers": [
+        127,
+        126,
+        125,
+        124,
+        123,
+        122,
+        121
+      ]
+    }
+  ],
+  "red_candidates": [
+    {
+      "repo": "joshyorko/actions",
+      "issue": 147,
+      "dependency": "#83, #129, #130, #143, #144",
+      "why_candidate": "Explicit hard dependency target(s) are still open; the issue is otherwise a bounded executable outcome, so a source parser that ignores issue-body dependencies could falsely admit it."
+    },
+    {
+      "repo": "joshyorko/actions",
+      "issue": 146,
+      "dependency": "#134, #143, #144",
+      "why_candidate": "Explicit hard dependency target(s) are still open; the issue is otherwise a bounded executable outcome, so a source parser that ignores issue-body dependencies could falsely admit it."
+    },
+    {
+      "repo": "joshyorko/actions",
+      "issue": 145,
+      "dependency": "#143, #144",
+      "why_candidate": "Explicit hard dependency target(s) are still open; the issue is otherwise a bounded executable outcome, so a source parser that ignores issue-body dependencies could falsely admit it."
+    },
+    {
+      "repo": "joshyorko/actions",
+      "issue": 144,
+      "dependency": "#134, #143",
+      "why_candidate": "Explicit hard dependency target(s) are still open; the issue is otherwise a bounded executable outcome, so a source parser that ignores issue-body dependencies could falsely admit it."
+    },
+    {
+      "repo": "joshyorko/actions",
+      "issue": 142,
+      "dependency": "#143, #144",
+      "why_candidate": "Explicit hard dependency target(s) are still open; the issue is otherwise a bounded executable outcome, so a source parser that ignores issue-body dependencies could falsely admit it."
+    },
+    {
+      "repo": "joshyorko/actions",
+      "issue": 141,
+      "dependency": "#83, #85, #129, #130, #132, #143",
+      "why_candidate": "Explicit hard dependency target(s) are still open; the issue is otherwise a bounded executable outcome, so a source parser that ignores issue-body dependencies could falsely admit it."
+    },
+    {
+      "repo": "joshyorko/actions",
+      "issue": 140,
+      "dependency": "#84, #129, #137, #138",
+      "why_candidate": "Explicit hard dependency target(s) are still open; the issue is otherwise a bounded executable outcome, so a source parser that ignores issue-body dependencies could falsely admit it."
+    },
+    {
+      "repo": "joshyorko/actions",
+      "issue": 138,
+      "dependency": "#83, #84, #129, #130, #143",
+      "why_candidate": "Explicit hard dependency target(s) are still open; the issue is otherwise a bounded executable outcome, so a source parser that ignores issue-body dependencies could falsely admit it."
+    },
+    {
+      "repo": "joshyorko/actions",
+      "issue": 136,
+      "dependency": "#135",
+      "why_candidate": "Explicit hard dependency target(s) are still open; the issue is otherwise a bounded executable outcome, so a source parser that ignores issue-body dependencies could falsely admit it."
+    },
+    {
+      "repo": "joshyorko/actions",
+      "issue": 133,
+      "dependency": "#129, #130",
+      "why_candidate": "Explicit hard dependency target(s) are still open; the issue is otherwise a bounded executable outcome, so a source parser that ignores issue-body dependencies could falsely admit it."
+    },
+    {
+      "repo": "joshyorko/actions",
+      "issue": 132,
+      "dependency": "#83, #90, #129",
+      "why_candidate": "Explicit hard dependency target(s) are still open; the issue is otherwise a bounded executable outcome, so a source parser that ignores issue-body dependencies could falsely admit it."
+    },
+    {
+      "repo": "joshyorko/actions",
+      "issue": 131,
+      "dependency": "#129, #130",
+      "why_candidate": "Explicit hard dependency target(s) are still open; the issue is otherwise a bounded executable outcome, so a source parser that ignores issue-body dependencies could falsely admit it."
+    },
+    {
+      "repo": "joshyorko/actions",
+      "issue": 130,
+      "dependency": "#129",
+      "why_candidate": "Explicit hard dependency target(s) are still open; the issue is otherwise a bounded executable outcome, so a source parser that ignores issue-body dependencies could falsely admit it."
+    },
+    {
+      "repo": "joshyorko/actions",
+      "issue": 99,
+      "dependency": "#97, #98",
+      "why_candidate": "Explicit hard dependency target(s) are still open; the issue is otherwise a bounded executable outcome, so a source parser that ignores issue-body dependencies could falsely admit it."
+    },
+    {
+      "repo": "joshyorko/actions",
+      "issue": 92,
+      "dependency": "#83, #85, #87, #129, #143",
+      "why_candidate": "Explicit hard dependency target(s) are still open; the issue is otherwise a bounded executable outcome, so a source parser that ignores issue-body dependencies could falsely admit it."
+    },
+    {
+      "repo": "joshyorko/actions",
+      "issue": 90,
+      "dependency": "#83, #84, #129, #130, #143",
+      "why_candidate": "Explicit hard dependency target(s) are still open; the issue is otherwise a bounded executable outcome, so a source parser that ignores issue-body dependencies could falsely admit it."
+    },
+    {
+      "repo": "joshyorko/actions",
+      "issue": 87,
+      "dependency": "#84, #129",
+      "why_candidate": "Explicit hard dependency target(s) are still open; the issue is otherwise a bounded executable outcome, so a source parser that ignores issue-body dependencies could falsely admit it."
+    },
+    {
+      "repo": "joshyorko/actions",
+      "issue": 86,
+      "dependency": "#83, #84, #129",
+      "why_candidate": "Explicit hard dependency target(s) are still open; the issue is otherwise a bounded executable outcome, so a source parser that ignores issue-body dependencies could falsely admit it."
+    },
+    {
+      "repo": "joshyorko/actions",
+      "issue": 85,
+      "dependency": "#83, #84, #129",
+      "why_candidate": "Explicit hard dependency target(s) are still open; the issue is otherwise a bounded executable outcome, so a source parser that ignores issue-body dependencies could falsely admit it."
+    },
+    {
+      "repo": "joshyorko/actions",
+      "issue": 83,
+      "dependency": "#84, #129",
+      "why_candidate": "Explicit hard dependency target(s) are still open; the issue is otherwise a bounded executable outcome, so a source parser that ignores issue-body dependencies could falsely admit it."
+    }
+  ],
+  "totals_verified": true,
+  "audit_metadata": {
+    "generated_at_utc": "2026-08-21T21:50:59Z",
+    "repos_revalidated_live": true,
+    "labels_created_at_setup": true,
+    "classification_policy": "docs/dogfood/convergence-actions-rcc.md readiness gate",
+    "note": "Issue #149 was created by the configured Hive App during startup as the living advisory ledger and classified separately after the initial read-only sweep."
+  }
+}
