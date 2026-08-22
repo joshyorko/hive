@@ -252,7 +252,42 @@ func TestObserveDependencies_ExplicitURLsAndMarkdownWrappedFields(t *testing.T) 
 	}
 }
 
-func TestObserveDependencies_ClosedCycleAndSelfRemainBlocked(t *testing.T) {
+func TestObserveDependencies_CommonMarkdownDependencyFields(t *testing.T) {
+	for _, body := range []string{
+		"**Depends on**: #2",
+		"- Depends on: #2",
+		"- [ ] Depends on: #2",
+		"1. Depends on: #2",
+	} {
+		obs := worksource.ObserveDependencies(worksource.DependencySnapshot{
+			Authority:        []string{"acme/actions"},
+			EnrollmentLabels: []string{"hive-managed"},
+			Issues: []worksource.Issue{
+				{Repo: "acme/actions", Number: 1, State: "open", Labels: []string{"hive-managed"}, Body: body},
+				{Repo: "acme/actions", Number: 2, State: "open"},
+			},
+		}, worksource.Ref{Repo: "acme/actions", Number: 1})
+		if !obs.Found || len(obs.Dependencies) != 1 || obs.Dependencies[0].Status != convergence.ConditionFalse {
+			t.Errorf("dependency field %q = %+v, want one open blocker", body, obs)
+		}
+	}
+}
+
+func TestObserveDependencies_FencedExamplesAreNonAuthoritative(t *testing.T) {
+	obs := worksource.ObserveDependencies(worksource.DependencySnapshot{
+		Authority:        []string{"acme/actions"},
+		EnrollmentLabels: []string{"hive-managed"},
+		Issues: []worksource.Issue{
+			{Repo: "acme/actions", Number: 1, State: "open", Labels: []string{"hive-managed"}, Body: "```text\nDepends on: #2\n```"},
+			{Repo: "acme/actions", Number: 2, State: "open"},
+		},
+	}, worksource.Ref{Repo: "acme/actions", Number: 1})
+	if obs.Found || len(obs.Dependencies) != 0 {
+		t.Fatalf("fenced dependency example created a blocker: %+v", obs)
+	}
+}
+
+func TestObserveDependencies_ClosedHistoricalCycleIsSatisfiedAndSelfRemainsBlocked(t *testing.T) {
 	cycle := worksource.ObserveDependencies(worksource.DependencySnapshot{
 		Authority:        []string{"acme/actions"},
 		EnrollmentLabels: []string{"hive-managed"},
@@ -261,8 +296,8 @@ func TestObserveDependencies_ClosedCycleAndSelfRemainBlocked(t *testing.T) {
 			{Repo: "acme/actions", Number: 2, State: "closed", Labels: []string{"hive-managed"}, Body: "Depends on: #1"},
 		},
 	}, worksource.Ref{Repo: "acme/actions", Number: 1})
-	if len(cycle.Dependencies) != 1 || cycle.Dependencies[0].Status != convergence.ConditionFalse || !strings.Contains(cycle.Dependencies[0].Detail, "cycle") {
-		t.Fatalf("closed cycle dependency = %+v, want diagnosed False", cycle.Dependencies)
+	if len(cycle.Dependencies) != 1 || cycle.Dependencies[0].Status != convergence.ConditionTrue {
+		t.Fatalf("closed historical cycle dependency = %+v, want authoritatively satisfied", cycle.Dependencies)
 	}
 	self := worksource.ObserveDependencies(worksource.DependencySnapshot{
 		Authority:        []string{"acme/actions"},
@@ -282,6 +317,7 @@ func TestObserveDependencies_MetadataFieldsRemainNonBlocking(t *testing.T) {
 		"Related: #2",
 		"Informs: #2",
 		"Grounded by: #2",
+		"Progresses: #2",
 		"See https://github.com/acme/actions/issues/2 for context",
 	} {
 		obs := worksource.ObserveDependencies(worksource.DependencySnapshot{

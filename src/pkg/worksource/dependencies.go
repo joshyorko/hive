@@ -12,7 +12,9 @@ import (
 )
 
 var (
-	dependencyLinePattern = regexp.MustCompile(`(?i)^\s*(?:[-*+]\s*)?(?:\*\*|__)?(depends on|blocked by)\s*:(?:\*\*|__)?\s*(.*?)\s*$`)
+	dependencyLinePattern = regexp.MustCompile(`(?i)^\s*(?:\*\*|__)?(depends on|blocked by)(?:(?:\*\*|__)\s*:|\s*:(?:\*\*|__)?)\s*(.*?)\s*$`)
+	listPrefixPattern     = regexp.MustCompile(`^\s*(?:(?:[-*+]|[1-9][0-9]*\.)\s+)?(?:\[[ xX]\]\s+)?`)
+	fencePattern          = regexp.MustCompile(`^\s{0,3}(` + "`{3,}" + `|~{3,})`)
 	shortIssueRefPattern  = regexp.MustCompile(`^#([1-9][0-9]*)$`)
 	fullIssueRefPattern   = regexp.MustCompile(`^([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)#([1-9][0-9]*)$`)
 	issueURLPattern       = regexp.MustCompile(`(?i)^https://github\.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/issues/([1-9][0-9]*)(?:[?#].*)?$`)
@@ -211,6 +213,9 @@ func canonicalRepo(raw string, configured []string) string {
 func dependencyGraph(records map[string]parsedSourceRecord, authority map[string]bool) map[string][]string {
 	graph := make(map[string][]string, len(records))
 	for key, record := range records {
+		if status, _ := sourceState(record.issue.State); status == convergence.ConditionTrue {
+			continue
+		}
 		for _, dep := range record.dependencies {
 			if dep.valid && authority[dep.repo] {
 				if _, exists := records[dep.id]; exists {
@@ -276,8 +281,18 @@ func enrolled(labels, required []string) bool {
 func parseDependencies(body string) ([]parsedDependency, bool) {
 	var deps []parsedDependency
 	found := false
+	inFence := false
 	for _, line := range strings.Split(body, "\n") {
-		match := dependencyLinePattern.FindStringSubmatch(strings.TrimSuffix(line, "\r"))
+		line = strings.TrimSuffix(line, "\r")
+		if fencePattern.MatchString(line) {
+			inFence = !inFence
+			continue
+		}
+		if inFence {
+			continue
+		}
+		line = listPrefixPattern.ReplaceAllString(line, "")
+		match := dependencyLinePattern.FindStringSubmatch(line)
 		if match == nil {
 			continue
 		}
