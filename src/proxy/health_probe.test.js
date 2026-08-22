@@ -38,6 +38,7 @@ const PROXY_PORT = 19061;
 const GO_PORT = 19062;
 const TTYD_PORT = 19063;
 const TOKEN = 'health-probe-test-token';
+const SESSION = 'synthetic-valid-device-flow-session';
 
 let goServer = null;
 const children = [];
@@ -47,6 +48,14 @@ function startMockGoApi() {
     if (req.url === '/api/health') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end('{"status":"ok"}');
+      return;
+    }
+    const authorized = req.headers['x-hive-internal'] === TOKEN ||
+      req.headers.authorization === `Bearer ${TOKEN}` ||
+      (req.headers.cookie || '').split(';').map(v => v.trim()).includes(`hive_session=${SESSION}`);
+    if (!authorized) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end('{"error":"unauthorized"}');
       return;
     }
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -167,6 +176,26 @@ async function main() {
   await check('self-hosted: a mutating endpoint still requires the token', async () => {
     const res = await req('POST', '/api/agents');
     assert.equal(res.status, 401, `expected 401, got ${res.status} — auth is off, so the assertion above proves nothing`);
+  });
+
+  await check('self-hosted: owner-only GET rejects anonymous and invalid credentials', async () => {
+    for (const headers of [
+      {},
+      { Authorization: 'Bearer synthetic-invalid-token' },
+      { Cookie: 'hive_session=synthetic-invalid-session' },
+    ]) {
+      const res = await req('GET', '/api/config/governor/backup', headers);
+      assert.ok([401, 403].includes(res.status), `expected 401/403, got ${res.status}`);
+    }
+  });
+
+  await check('self-hosted: dashboard token and device-flow session reach owner-only APIs', async () => {
+    const tokenGet = await req('GET', '/api/config/governor/backup', { Authorization: `Bearer ${TOKEN}` });
+    assert.equal(tokenGet.status, 200, `dashboard token GET got ${tokenGet.status}`);
+    const sessionGet = await req('GET', '/api/config/governor/backup', { Cookie: `hive_session=${SESSION}` });
+    assert.equal(sessionGet.status, 200, `device-flow session GET got ${sessionGet.status}`);
+    const sessionWrite = await req('POST', '/api/agents', { Cookie: `hive_session=${SESSION}` });
+    assert.equal(sessionWrite.status, 200, `device-flow session write got ${sessionWrite.status}`);
   });
 
   await stopProxy(proxy);

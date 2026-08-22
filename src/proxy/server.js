@@ -862,15 +862,6 @@ app.use(async (req, res, next) => {
   next();
 });
 
-const PUBLIC_POST_PATHS = ['/api/contribute/register'];
-app.use((req, res, next) => {
-  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
-    if (PUBLIC_POST_PATHS.some(p => req.url.startsWith(p))) return next();
-    return requireAuth(req, res, next);
-  }
-  next();
-});
-
 const apiProxy = createProxyMiddleware({
   target: GO_API_URL,
   changeOrigin: true,
@@ -880,11 +871,11 @@ const apiProxy = createProxyMiddleware({
       if (req.headers.upgrade) return;
       proxyReq.removeHeader('X-Hive-User');
       proxyReq.removeHeader('X-Hive-Role');
-      if (DASHBOARD_TOKEN) {
-        proxyReq.setHeader('X-Hive-Internal', DASHBOARD_TOKEN);
-      } else {
-        proxyReq.removeHeader('X-Hive-Internal');
-      }
+      // Client requests must reach the Go authentication middleware with only
+      // the credentials the client actually supplied. Injecting the proxy's
+      // internal token here turned every /api request into an owner request,
+      // bypassing bearer and device-flow session authentication on GETs.
+      proxyReq.removeHeader('X-Hive-Internal');
     },
     error(err, req, res) {
       console.error(`[proxy] ${req.method} ${req.url} → ${err.message}`);
