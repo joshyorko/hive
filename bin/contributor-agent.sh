@@ -40,6 +40,7 @@ export HIVE_AGENT_SESSION="$TMUX_SESSION"
 export HIVE_AGENT_ID="contributor"
 export HIVE_CONTRIBUTOR_MODE="true"
 export HIVE_CONTRIBUTOR_CLI="$AGENT_BACKEND"
+export HIVE_GH_TOKEN_CACHE="${HIVE_GH_TOKEN_CACHE:-/var/run/hive-metrics/contributor-gh-token.cache}"
 
 knowledge_export_looks_valid() {
   local path="$1"
@@ -322,27 +323,27 @@ fi
 # Ensure metrics directory exists for gh-wrapper token injection
 mkdir -p /var/run/hive-metrics 2>/dev/null || true
 
-# Configure git credentials so push works (fork + PR model).
-# GH_TOKEN is the contributor's personal token — enough to fork and push.
-#
-# It is expanded with a ":-" default because this script runs under `set -u`:
-# an unset GH_TOKEN would otherwise abort the entrypoint here with
-# "GH_TOKEN: unbound variable", before the CLI or the relay ever start.
-# An absent token is a normal, supported state — `just contribute-run` passes
-# -e GH_TOKEN="${GH_TOKEN}" and sets it to "" whenever `gh auth token` fails,
-# and the hub also injects a per-task token over the WebSocket at dispatch
-# time (task_assign.github_token -> injectGhToken). Only git push needs this
-# helper, so an empty value must degrade rather than kill the container.
+# Configure git credentials from the relay's rotating per-task token cache.
+# Capturing GH_TOKEN here freezes the startup value, but the hub deliberately
+# delivers and refreshes credentials after task acceptance.
 CRED_HELPER="${HOME}/.git-credential-hive"
-cat > "$CRED_HELPER" <<CRED
+cat > "$CRED_HELPER" <<'CRED'
 #!/bin/sh
 # Git credential helper protocol: only respond to "get" requests
-case "\$1" in
+case "$1" in
   get)
+    token_cache="${HIVE_GH_TOKEN_CACHE:-/var/run/hive-metrics/contributor-gh-token.cache}"
+    token=""
+    if [ -r "$token_cache" ] && [ -s "$token_cache" ]; then
+      token="$(cat "$token_cache")"
+    elif [ -n "${GH_TOKEN:-}" ]; then
+      token="$GH_TOKEN"
+    fi
+    [ -n "$token" ] || exit 1
     echo "protocol=https"
     echo "host=github.com"
     echo "username=x-access-token"
-    echo "password=${GH_TOKEN:-}"
+    echo "password=$token"
     ;;
 esac
 CRED
@@ -350,6 +351,11 @@ chmod +x "$CRED_HELPER"
 git config --global credential.helper "$CRED_HELPER"
 git config --global user.email "${HIVE_CONTRIBUTOR_USERNAME:-contributor}@users.noreply.github.com"
 git config --global user.name "${HIVE_CONTRIBUTOR_USERNAME:-Hive Contributor}"
+
+if [[ "${HIVE_CONTRIBUTOR_AGENT_TEST_CREDENTIAL_HELPER:-}" == "1" ]]; then
+  printf '%s\n' "$CRED_HELPER"
+  exit 0
+fi
 
 # Disable Claude auto-updates inside container (no npm write permission)
 if [[ "$AGENT_BACKEND" == "claude" ]] && [[ -f "${HOME}/.claude.json" ]]; then
