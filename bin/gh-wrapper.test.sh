@@ -36,6 +36,9 @@ if [[ "${1:-}" = "api" && "${2:-}" = "user" ]]; then
   echo "${MOCK_GH_LOGIN:-test-bot[bot]}"
   exit 0
 fi
+if [[ "${1:-}" = "version" ]]; then
+  echo "token=${GH_TOKEN:-}"
+fi
 exit 0
 MOCK
 chmod +x "$MOCK_GH"
@@ -359,6 +362,20 @@ _run_test_contributor 1 "issue list contributor mode --author unverified contrib
 
 MOCK_GH_LOGIN="test-contributor" _run_test_contributor 0 "issue list contributor mode --author verified contributor token login (allowed)" \
   issue list --repo test/repo --author test-contributor
+
+CONTRIBUTOR_TOKEN_CACHE="${WORK_DIR}/contributor-token"
+printf '%s\n' "fresh-task-scoped-token" >"$CONTRIBUTOR_TOKEN_CACHE"
+touch "${WORK_DIR}/contributor-marker"
+token_output="$(env HIVE_GH_TOKEN_CACHE="$CONTRIBUTOR_TOKEN_CACHE" GH_TOKEN="stale-startup-token" \
+  HIVE_GH_WRAPPER_REAL_GH="$MOCK_GH" bash "$TEST_WRAPPER" version 2>&1)"
+rm -f "${WORK_DIR}/contributor-marker"
+if [[ "$token_output" == *"token=fresh-task-scoped-token"* ]]; then
+  echo "PASS: contributor gh reads the current task-scoped token cache"
+  PASSED=$((PASSED + 1))
+else
+  echo "FAIL: contributor gh did not refresh from the task-scoped token cache: $token_output"
+  FAILED=$((FAILED + 1))
+fi
 
 echo ""
 echo "=== Marker trust boundary regression tests ==="

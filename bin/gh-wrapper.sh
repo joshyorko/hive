@@ -72,10 +72,19 @@ if [[ ! -x "$REAL_GH" ]]; then
   exit 1
 fi
 
-# Inject GitHub App token for agent gh calls (15k/hr vs PAT's 5k/hr).
-# Contributors keep their personal token — they fork+PR with their own identity.
+# Inject the current scoped GitHub App token for every managed gh call. The
+# contributor relay rotates its per-task credential in a cache after the
+# contributor process has started, so contributor mode must read that cache on
+# every invocation instead of retaining a stale startup environment value.
 TOKEN_ACCESS_LOG="/var/run/hive-metrics/token-access.jsonl"
-if ! _contributor_mode; then
+if _contributor_mode; then
+  CONTRIBUTOR_TOKEN_CACHE="${HIVE_GH_TOKEN_CACHE:-/var/run/hive-metrics/contributor-gh-token.cache}"
+  if [[ -f "$CONTRIBUTOR_TOKEN_CACHE" && -r "$CONTRIBUTOR_TOKEN_CACHE" && -s "$CONTRIBUTOR_TOKEN_CACHE" ]]; then
+    export GH_TOKEN="$(cat "$CONTRIBUTOR_TOKEN_CACHE")"
+    export GH_ENTERPRISE_TOKEN="$GH_TOKEN"
+    export GH_PROMPT_DISABLED=1
+  fi
+else
   # Per-agent scoped token (Phase 4) — 0640 dev:hive-<agent>, least-privilege,
   # readable ONLY by the owning agent's private group. This is the ONLY token an
   # agent may use.

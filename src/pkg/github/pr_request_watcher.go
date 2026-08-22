@@ -60,6 +60,28 @@ type PRResponse struct {
 	At             string `json:"at"`
 }
 
+// EnsureReportedPRHold applies the same operator-owned hold gate used by the
+// App PR request watcher to a contributor-reported PR. A contributor may open
+// the PR directly with its task-scoped App token, so the completion boundary
+// must reassert the hold label before treating that delivery as verified.
+func (c *Client) EnsureReportedPRHold(ctx context.Context, expectedRepo, prURL string) (bool, error) {
+	if c == nil || c.prHoldLabel == nil || !c.prHoldLabel() {
+		return false, nil
+	}
+	ref, err := ParsePRURL(prURL)
+	if err != nil {
+		return true, err
+	}
+	full := ref.Owner + "/" + ref.Repo
+	if !prBaseRepoMatches(full, expectedRepo) {
+		return true, fmt.Errorf("PR repo %q does not match assigned repo %q", full, expectedRepo)
+	}
+	if err := c.AddLabels(ctx, full, ref.Number, []string{"hold"}); err != nil {
+		return true, err
+	}
+	return true, nil
+}
+
 // PRRequestAuthorizer decides whether a PR-open request may proceed. It receives
 // the agent NAME claimed in the request and the UID that OWNS the request file
 // (from the file's stat), and returns nil to authorize or an error explaining

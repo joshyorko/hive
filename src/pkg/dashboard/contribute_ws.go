@@ -1502,6 +1502,17 @@ func (h *ContributeWSHub) verifyReportedPRDetail(assignedRepo, prURL, contributo
 	}
 	res := h.server.deps.GHClient.VerifyReportedPR(ctx, assignedRepo, prURL, contributorUsername)
 	if res.Verified {
+		if required, err := h.server.deps.GHClient.EnsureReportedPRHold(ctx, assignedRepo, prURL); err != nil {
+			res.Verified = false
+			res.Reason = "required hold label could not be applied"
+			res.Err = err
+			h.logger.Warn("[contribute-ws] reported PR hold gate failed — treating completion as no-PR",
+				"repo", assignedRepo, "pr_url", prURL, "username", contributorUsername, "error", err.Error())
+			return res
+		} else if required {
+			h.logger.Info("[contribute-ws] required hold label applied before delivery acceptance",
+				"repo", assignedRepo, "pr_url", prURL)
+		}
 		h.logger.Info("[contribute-ws] reported PR verified",
 			"repo", assignedRepo, "pr_url", prURL, "username", contributorUsername,
 			"author", res.Author, "base_repo", res.BaseRepo, "merged", res.Merged)
@@ -4121,6 +4132,15 @@ func buildTaskPrompt(repoFull string, number int, title string) string {
 // The repository instructions are unchanged and still name the GitHub repo —
 // external work is planned elsewhere but still landed as a PR here.
 func buildTaskPromptForRef(ref worksource.Ref, title string) string {
+	return buildTaskPromptForContributor(ref, title, false)
+}
+
+// buildTaskPromptForContributor keeps the normal external-contributor fork
+// workflow while giving an operator-registered App-bot contributor an explicit
+// same-repository delivery contract. The repository and issue remain selected
+// by the existing scheduler; this changes only how the selected work is
+// delivered.
+func buildTaskPromptForContributor(ref worksource.Ref, title string, appManaged bool) string {
 	repoFull := ref.Repo
 	issueRef := ref.Key()
 	if issueRef == "" {
@@ -4135,7 +4155,23 @@ func buildTaskPromptForRef(ref worksource.Ref, title string) string {
 			" This work item lives in the %s work source, not in GitHub Issues; read it at %s.",
 			sourceLabel(ref.SourceType), ref.URL)
 	}
+	if appManaged {
+		return buildAppManagedTaskPromptBody(repoFull, issueRef, title, sourceHint)
+	}
 	return buildTaskPromptBody(repoFull, issueRef, title, sourceHint)
+}
+
+func buildAppManagedTaskPromptBody(repoFull, issueRef, title, sourceHint string) string {
+	return fmt.Sprintf(
+		"You are the Hive App-managed implementation contributor for %s. Work on issue %s: %q.%s "+
+			"Start with a real checkout using 'gh repo clone %s $HIVE_WORKSPACE_DIR/%s', or fetch the existing checkout. "+
+			"Read the issue and repository instructions, implement the smallest complete fix, and run the relevant tests. "+
+			"Create a dedicated issue branch and commit with 'git commit -s'. Push the signed branch to %s using origin. "+
+			"Open one ready-for-review pull request with 'gh pr create' and apply the hold label; never merge or remove hold. "+
+			"Use the current GH_TOKEN for GitHub operations. If nothing is shippable, print "+
+			"'HIVE_VERDICT: no_work_needed — <short reason>' and stop.",
+		repoFull, issueRef, title, sourceHint, repoFull, repoFull, repoFull,
+	)
 }
 
 // taskIDSegment is the per-item component of a task id. For GitHub-backed work
@@ -4890,7 +4926,9 @@ func (h *ContributeWSHub) selectTask(c *ContributorConnection) *WSMessage {
 	// the prompt), so previewing the prompt can never leak the token. buildTaskPrompt
 	// itself carries the #2545 workspace-clone instruction (real checkout into
 	// $HIVE_WORKSPACE_DIR rather than a fork-only --clone=false).
-	prompt := buildTaskPromptForRef(chosen.ref, chosen.title)
+	appManaged := h.server.deps != nil && h.server.deps.Config != nil && c != nil && c.profile != nil &&
+		strings.EqualFold(strings.TrimSpace(c.profile.GitHubUsername), strings.TrimSpace(h.server.deps.Config.GitHub.BotLogin()))
+	prompt := buildTaskPromptForContributor(chosen.ref, chosen.title, appManaged)
 	if requestedRole != "" {
 		prompt = buildRoleTaskPromptForRef(chosen.ref, chosen.title, requestedRole, h.roleKickPrompt(requestedRole))
 	}

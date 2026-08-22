@@ -21,6 +21,30 @@ trap cleanup EXIT
 
 mkdir -p "$HOOK_DIR" "$HOME_DIR"
 
+TOKEN_CACHE="${WORK_DIR}/task-token"
+printf '%s\n' "first-scoped-token" >"$TOKEN_CACHE"
+credential_helper="$({
+  env -i \
+    PATH="${PATH}" \
+    HOME="$HOME_DIR" \
+    HIVE_REGISTRATION_TOKEN="test-token" \
+    HIVE_GH_TOKEN_CACHE="$TOKEN_CACHE" \
+    HIVE_CONTRIBUTOR_AGENT_TEST_CREDENTIAL_HELPER=1 \
+    OPENAI_API_KEY="test-only" \
+    AGENT_BACKEND=codex \
+    bash "${ROOT_DIR}/bin/contributor-agent.sh"
+} 2>/dev/null)"
+credential_helper="$(printf '%s\n' "$credential_helper" | tail -n1)"
+printf '%s\n' "second-scoped-token" >"$TOKEN_CACHE"
+credential_output="$(printf 'protocol=https\nhost=github.com\n\n' | HIVE_GH_TOKEN_CACHE="$TOKEN_CACHE" bash "$credential_helper" get)"
+case "$credential_output" in
+  *"password=second-scoped-token"* ) ;;
+  *)
+    echo "expected contributor git helper to read the rotated task token; got: $credential_output" >&2
+    exit 1
+    ;;
+esac
+
 cat >"${HOOK_DIR}/10-backend-override.sh" <<'HOOK'
 backend_binary() {
   case "$1" in
@@ -312,7 +336,7 @@ fi
 
 if output="$(
   env -i \
-    PATH="${PATH}" \
+    PATH="/usr/bin:/bin" \
     HOME="$HOME_DIR" \
     CODEX_HOME="$CODEX_HOME_DIR" \
     HIVE_REGISTRATION_TOKEN="test-token" \
