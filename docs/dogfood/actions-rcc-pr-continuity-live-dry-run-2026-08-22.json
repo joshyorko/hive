@@ -1,0 +1,276 @@
+{
+  "repo": "joshyorko/actions",
+  "generated_at": "2026-08-22T13:09:56-04:00",
+  "source": "ghx pr view",
+  "summary": {
+    "total": 5,
+    "ready": 0,
+    "blocked": 1,
+    "continue": 4,
+    "superseded": 0,
+    "unknown": 0
+  },
+  "prs": [
+    {
+      "number": 109,
+      "title": "feat: support shared Runtime database backends",
+      "state": "OPEN",
+      "state_classification": "BLOCKED",
+      "head": {
+        "ref": "factory/issue-84-shared-database",
+        "oid": "103c0788c8ba0dd6cb000658d19fd065a362f997"
+      },
+      "base": {
+        "ref": "community",
+        "oid": "4621013277f9d489ff1258a66f77caee9133436a"
+      },
+      "author": "joshyorko",
+      "draft": true,
+      "labels": [],
+      "mergeable": "CONFLICTING",
+      "merge_state_status": "DIRTY",
+      "review_decision": "",
+      "linked_issues": [84],
+      "closing_keyword_correctness": {
+        "keyword": "Closes #84",
+        "assessment": "correct"
+      },
+      "ci": {
+        "overall": "green",
+        "checks_sampled": [
+          "Action Server PYPI Release: build-sdist (ubuntu-py3.12)",
+          "Action Server PYPI Release: build-wheels (ubuntu-22.04)",
+          "Action Server PYPI Release: build-wheels (windows-2022)",
+          "Action Server PYPI Release: build-wheels (macos-15)",
+          "Action Server PYPI Release: publish (3.12)"
+        ]
+      },
+      "file_overlap": [
+        {
+          "path": "docs/skills/repository-operations.md",
+          "with_prs": [112, 115, 119]
+        }
+      ],
+      "stack_topology": "community-base sibling; not a stack successor of the other four, but it shares docs overlap with the runtime/frontend lane.",
+      "likely_app_write_capability": "candidate is same-repository and the branch is unprotected; the deployed App observer must still prove repository push permission. Merge is independently blocked by conflicts.",
+      "acceptance_delta": "Scope looks complete for #84, but current merge conflict prevents landing on top of the live base.",
+      "proposed_next_action": "Merge the current community base without rewriting history, resolve the conflict, then re-run targeted verification. Preserve draft state until the existing review path changes it."
+    },
+    {
+      "number": 112,
+      "title": "feat(frontend): refresh the Actions Runtime product shell",
+      "state": "OPEN",
+      "state_classification": "CONTINUE",
+      "head": {
+        "ref": "factory/issue-96-runtime-shell",
+        "oid": "eb5a55b09c709bbe0292c978b025fa07783113d1"
+      },
+      "base": {
+        "ref": "community",
+        "oid": "0d1d35a6521a92a2f02995ce02215f6eb737e58e"
+      },
+      "author": "joshyorko",
+      "draft": true,
+      "labels": [],
+      "mergeable": "MERGEABLE",
+      "merge_state_status": "CLEAN",
+      "review_decision": "",
+      "linked_issues": [96],
+      "closing_keyword_correctness": {
+        "keyword": "Closes #96",
+        "assessment": "correct"
+      },
+      "ci": {
+        "overall": "green",
+        "checks_sampled": [
+          "Action Server Build (Unauthenticated): Build Action Server binary without credentials (ubuntu-22.04)",
+          "Action Server Frontend tests: action-server-frontend-tests",
+          "Action Server PYPI Release: build-sdist (ubuntu-py3.12)",
+          "Frontend Build: build (ubuntu-latest)",
+          "Lighthouse CI: lighthouse"
+        ]
+      },
+      "file_overlap": [
+        {
+          "path": "docs/skills/repository-operations.md",
+          "with_prs": [109, 115, 119]
+        },
+        {
+          "path": "action_server/frontend/README.md",
+          "with_prs": [115]
+        },
+        {
+          "path": "action_server/frontend/apps/runtime/index.html",
+          "with_prs": [115]
+        }
+      ],
+      "stack_topology": "runtime-shell sibling on the older community base; independent from #109, but it shares frontend/doc touchpoints with #115 and #119.",
+      "likely_app_write_capability": "candidate is same-repository and the branch is unprotected; the deployed App observer must still prove repository push permission.",
+      "acceptance_delta": "CI is green and the scope matches #96, but the author still declares the PR a draft; Continuity must preserve that state.",
+      "proposed_next_action": "Adopt for continuation only if the owner wants Hive to finish the draft acceptance slice; do not mark ready or merge as an implementation trick."
+    },
+    {
+      "number": 115,
+      "title": "feat(frontend): modernize dual artifact build pipeline",
+      "state": "OPEN",
+      "state_classification": "CONTINUE",
+      "head": {
+        "ref": "factory/issue-98-frontend-build",
+        "oid": "16da9717822cabc33ca39d39ca896aae7280b0fb"
+      },
+      "base": {
+        "ref": "community",
+        "oid": "4621013277f9d489ff1258a66f77caee9133436a"
+      },
+      "author": "joshyorko",
+      "draft": true,
+      "labels": [],
+      "mergeable": "MERGEABLE",
+      "merge_state_status": "CLEAN",
+      "review_decision": "",
+      "linked_issues": [98],
+      "closing_keyword_correctness": {
+        "keyword": "Progresses #98",
+        "assessment": "correct"
+      },
+      "ci": {
+        "overall": "green",
+        "checks_sampled": [
+          "Action Server Build (Unauthenticated): Build Action Server binary without credentials (ubuntu-22.04)",
+          "Action Server Frontend tests: action-server-frontend-tests",
+          "Action Server PYPI Release: build-sdist (ubuntu-py3.12)",
+          "Frontend Build: build (ubuntu-latest)",
+          "Frontend canonical integrity: check-integrity"
+        ]
+      },
+      "file_overlap": [
+        {
+          "path": "docs/skills/repository-operations.md",
+          "with_prs": [109, 112, 119]
+        },
+        {
+          "path": "action_server/frontend/README.md",
+          "with_prs": [112, 119]
+        },
+        {
+          "path": "action_server/frontend/apps/runtime/index.html",
+          "with_prs": [112, 119]
+        },
+        {
+          "path": "action_server/frontend/package-lock.json",
+          "with_prs": [119]
+        },
+        {
+          "path": "action_server/frontend/package.json",
+          "with_prs": [119]
+        }
+      ],
+      "stack_topology": "frontend-pipeline sibling on the same community base; it overlaps with #119 on package/artifact files and with #112/#119 on docs/runtime shell paths.",
+      "likely_app_write_capability": "candidate is same-repository and the branch is unprotected; the deployed App observer must still prove repository push permission.",
+      "acceptance_delta": "Pipeline/tooling modernization appears complete and the PR intentionally does not claim issue closure, but the author still declares it a draft.",
+      "proposed_next_action": "Adopt only for the remaining draft acceptance work; preserve Progresses semantics and require an operator decision before any issue closure."
+    },
+    {
+      "number": 119,
+      "title": "test(frontend): add Runtime product evidence harness",
+      "state": "OPEN",
+      "state_classification": "CONTINUE",
+      "head": {
+        "ref": "factory/issue-96-product-evidence-harness",
+        "oid": "08a0d5f0f3630630c2d86190bb157b8fe0f00f65"
+      },
+      "base": {
+        "ref": "community",
+        "oid": "4621013277f9d489ff1258a66f77caee9133436a"
+      },
+      "author": "joshyorko",
+      "draft": true,
+      "labels": [],
+      "mergeable": "MERGEABLE",
+      "merge_state_status": "CLEAN",
+      "review_decision": "",
+      "linked_issues": [96],
+      "closing_keyword_correctness": {
+        "keyword": "Progresses #96",
+        "assessment": "correct"
+      },
+      "ci": {
+        "overall": "green",
+        "checks_sampled": [
+          "Action Server Build (Unauthenticated): Build Action Server binary without credentials (ubuntu-22.04)",
+          "Action Server Frontend tests: action-server-frontend-tests",
+          "Action Server PYPI Release: build-sdist (ubuntu-py3.12)",
+          "Frontend Build: build (ubuntu-latest)",
+          "Frontend canonical integrity: check-integrity"
+        ]
+      },
+      "file_overlap": [
+        {
+          "path": "docs/skills/repository-operations.md",
+          "with_prs": [109, 112, 115]
+        },
+        {
+          "path": "action_server/frontend/README.md",
+          "with_prs": [112, 115]
+        },
+        {
+          "path": "action_server/frontend/package-lock.json",
+          "with_prs": [115]
+        },
+        {
+          "path": "action_server/frontend/package.json",
+          "with_prs": [115]
+        }
+      ],
+      "stack_topology": "supporting evidence sibling for the #96 lane; it shares frontend package/docs touchpoints with #112 and #115, but it is not a hard predecessor.",
+      "likely_app_write_capability": "candidate is same-repository and the branch is unprotected; the deployed App observer must still prove repository push permission.",
+      "acceptance_delta": "The harness adds evidence and validation coverage but intentionally does not close #96 by itself.",
+      "proposed_next_action": "Treat this as a separate adopted acceptance slice for #96 if authorized; preserve draft and Progresses semantics while coordinating its overlap with #112."
+    },
+    {
+      "number": 128,
+      "title": "Remove gated product surfaces from Community",
+      "state": "OPEN",
+      "state_classification": "CONTINUE",
+      "head": {
+        "ref": "chore/community-product-surface-cleanup",
+        "oid": "bfc3c7276afb2d4d115cb68d66966da1533f7a0f"
+      },
+      "base": {
+        "ref": "community",
+        "oid": "77a50508a52d55de4570bf973dd43428048b8802"
+      },
+      "author": "joshyorko",
+      "draft": true,
+      "labels": [],
+      "mergeable": "MERGEABLE",
+      "merge_state_status": "CLEAN",
+      "review_decision": "",
+      "linked_issues": [125],
+      "closing_keyword_correctness": {
+        "keyword": "Progresses #125",
+        "assessment": "correct"
+      },
+      "ci": {
+        "overall": "green",
+        "checks_sampled": [
+          "Action Server Build (Unauthenticated): Build Action Server binary without credentials (ubuntu-22.04)",
+          "Action Server Frontend tests: action-server-frontend-tests",
+          "Action Server PYPI Release: build-sdist (ubuntu-py3.12)",
+          "Actions Core Tests: build (ubuntu-py3.10-devmode)",
+          "Copilot Setup Steps: copilot-setup-steps"
+        ]
+      },
+      "file_overlap": [
+        {
+          "path": "docs/skills/repository-operations.md",
+          "with_prs": [109, 112, 115, 119]
+        }
+      ],
+      "stack_topology": "later community checkpoint on a newer base; it is not a mergeable follow-on yet because the author marked it draft and verification-incomplete.",
+      "likely_app_write_capability": "candidate is same-repository and the branch is unprotected; the deployed App observer must still prove repository push permission. Draft/review state remains a separate release boundary.",
+      "acceptance_delta": "It has a broad cleanup scope but still declares verification incomplete and no merge recommendation.",
+      "proposed_next_action": "Continue the remaining verification/repair checklist, then re-evaluate before asking for review or merge."
+    }
+  ]
+}

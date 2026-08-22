@@ -12,6 +12,7 @@ import (
 	"github.com/kubestellar/hive/pkg/agent"
 	"github.com/kubestellar/hive/pkg/beads"
 	"github.com/kubestellar/hive/pkg/config"
+	"github.com/kubestellar/hive/pkg/continuity"
 	ghpkg "github.com/kubestellar/hive/pkg/github"
 	"github.com/kubestellar/hive/pkg/governor"
 	"github.com/kubestellar/hive/pkg/knowledge"
@@ -89,6 +90,12 @@ type Dependencies struct {
 	// repo is tried in the same spelling the ledger keys on (the config repo
 	// form); a nil func means "no claim data" and disables the check.
 	IssueClaimed func(repo string, number int) (ghpkg.IssueClaim, bool)
+	// ContinuityLedger is the durable owner-authorized adoption authority for
+	// pre-existing pull requests. ObserveContinuityPR is source observation
+	// only; the owner-gated handler is the sole promotion seam.
+	ContinuityLedger       *continuity.Ledger
+	ObserveContinuityPR    func(context.Context, continuity.PRRef) (continuity.Observation, error)
+	ValidateContinuityHead func(context.Context, continuity.PRRef, string, string) error
 }
 
 type NousState struct {

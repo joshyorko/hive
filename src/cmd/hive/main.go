@@ -53,6 +53,7 @@ import (
 	"github.com/kubestellar/hive/pkg/beads"
 	"github.com/kubestellar/hive/pkg/classify"
 	"github.com/kubestellar/hive/pkg/config"
+	"github.com/kubestellar/hive/pkg/continuity"
 	"github.com/kubestellar/hive/pkg/dashboard"
 	"github.com/kubestellar/hive/pkg/defsrc"
 	"github.com/kubestellar/hive/pkg/discord"
@@ -2457,6 +2458,9 @@ func main() {
 		IssueClaimed: func(repo string, number int) (github.IssueClaim, bool) {
 			return getClaimLedger(logger).Lookup(repo, number)
 		},
+		ContinuityLedger:       getContinuityLedger(logger),
+		ObserveContinuityPR:    ghClient.ObserveContinuityPR,
+		ValidateContinuityHead: ghClient.ValidateContinuityHead,
 		PersistFunc: func() {
 			persistState(agentMgr, gov, cfg, tokenCollector, statePath, logger, dashSrv)
 		},
@@ -5493,6 +5497,12 @@ func runEvalCycle(
 	// another. Backed by a PVC ledger so it survives those restarts, and fails
 	// closed (keeps the last known claims) when the GitHub API is unavailable.
 	applyDuplicatePRGuard(ctx, cfg, ghClient, actionable, logger)
+	if ledger := getContinuityLedger(logger); ledger != nil {
+		refreshContinuityAdoptions(ctx, ledger, ghClient.ObserveContinuityPR, logger)
+		records := ledger.List()
+		github.FilterContinuityOwnedIssues(actionable, records, logger)
+		actionable.Continuations = github.BuildContinuityResult(records)
+	}
 
 	lastActionable.Store(actionable)
 	if data, err := json.Marshal(actionable); err == nil {
@@ -7187,8 +7197,11 @@ func mergeableJSON(m github.Mergeable) string {
 // failure) rather than at startup, so a missing or corrupt /data ledger can
 // never block the hive from booting.
 var (
-	claimLedgerOnce sync.Once
-	claimLedger     *github.ClaimLedger
+	claimLedgerOnce      sync.Once
+	claimLedger          *github.ClaimLedger
+	continuityLedgerOnce sync.Once
+	continuityLedger     *continuity.Ledger
+	continuityLedgerErr  error
 )
 
 // hiveIdentity determines which PR authors count as "this hive", so only our
@@ -7218,7 +7231,68 @@ func applyDuplicatePRGuard(
 	if ledger == nil {
 		return
 	}
+	continuityAuthority := getContinuityLedger(logger)
+	ghClient.SetClaimAdoptionLookup(func(prRepo string, prNumber int, workKey string) bool {
+		return continuityClaimAdopted(cfg, continuityAuthority, prRepo, prNumber, workKey)
+	})
 	github.ApplyDuplicatePRGuard(ctx, ghClient, ledger, hiveIdentity(cfg), actionable, claimingPRRedStale(cfg, actionable), logger)
+}
+
+func getContinuityLedger(logger *slog.Logger) *continuity.Ledger {
+	continuityLedgerOnce.Do(func() {
+		continuityLedger, continuityLedgerErr = continuity.OpenLedger(continuity.DefaultLedgerPath)
+		if continuityLedgerErr != nil && logger != nil {
+			logger.Error("continuity authority unavailable; adopted work cannot be projected",
+				"path", continuity.DefaultLedgerPath, "error", continuityLedgerErr)
+		}
+	})
+	return continuityLedger
+}
+
+func refreshContinuityAdoptions(
+	ctx context.Context,
+	ledger *continuity.Ledger,
+	observe func(context.Context, continuity.PRRef) (continuity.Observation, error),
+	logger *slog.Logger,
+) {
+	if ledger == nil || observe == nil {
+		return
+	}
+	for _, rec := range ledger.List() {
+		if !rec.Active {
+			continue
+		}
+		obs, err := observe(ctx, rec.Ref)
+		if err != nil {
+			reason := "GitHub source observation failed; ownership retained and continuation withheld"
+			if _, degradeErr := ledger.Degrade(rec.Ref, reason, "github:observation-error", time.Now().UTC()); degradeErr != nil && logger != nil {
+				logger.Error("failed to persist continuity source failure", "pr", rec.Ref.Key(), "error", degradeErr)
+			}
+			if logger != nil {
+				logger.Warn("continuity source observation failed closed", "pr", rec.Ref.Key(), "error", err)
+			}
+			continue
+		}
+		if _, err := ledger.Refresh(obs, time.Now().UTC()); err != nil && !errors.Is(err, continuity.ErrHeadMoved) && logger != nil {
+			logger.Error("failed to persist continuity refresh", "pr", rec.Ref.Key(), "error", err)
+		}
+	}
+}
+
+func continuityClaimAdopted(cfg *config.Config, ledger *continuity.Ledger, prRepo string, prNumber int, workKey string) bool {
+	if cfg == nil || ledger == nil || prNumber <= 0 || workKey == "" {
+		return false
+	}
+	fullPRRepo := prRepo
+	if !strings.Contains(fullPRRepo, "/") {
+		fullPRRepo = cfg.Project.Org + "/" + fullPRRepo
+	}
+	for _, rec := range ledger.LookupWork(workKey) {
+		if rec.Active && rec.Ref.Number == prNumber && strings.EqualFold(rec.Ref.Repo, fullPRRepo) {
+			return true
+		}
+	}
+	return false
 }
 
 // getClaimLedger lazily loads the persisted claim ledger on first use (and

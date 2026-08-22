@@ -26,6 +26,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/kubestellar/hive/pkg/advisory"
 	"github.com/kubestellar/hive/pkg/config"
+	"github.com/kubestellar/hive/pkg/continuity"
 	ghpkg "github.com/kubestellar/hive/pkg/github"
 	"github.com/kubestellar/hive/pkg/worksource"
 )
@@ -234,9 +235,15 @@ type WSMessage struct {
 	// that does not keeps echoing repo/number, which the hub still resolves
 	// through the connection's own assignment record rather than trusting the
 	// client to name the work.
-	TaskKey    string `json:"task_key,omitempty"`
-	SourceType string `json:"source_type,omitempty"`
-	ExternalID string `json:"external_id,omitempty"`
+	TaskKey            string `json:"task_key,omitempty"`
+	SourceType         string `json:"source_type,omitempty"`
+	ExternalID         string `json:"external_id,omitempty"`
+	ContinuityPR       int    `json:"continuity_pr,omitempty"`
+	ExistingHeadRepo   string `json:"existing_head_repo,omitempty"`
+	ExistingHeadBranch string `json:"existing_head_branch,omitempty"`
+	ExpectedHeadSHA    string `json:"expected_head_sha,omitempty"`
+	BaseBranch         string `json:"base_branch,omitempty"`
+	OriginalPRAuthor   string `json:"original_pr_author,omitempty"`
 	// GitHubToken carries the scoped, expiring credential. As of #2537 it is
 	// NEVER populated on task_assign — the credential is split OUT of the
 	// assignment message and delivered only AFTER the task's acceptance decision,
@@ -336,10 +343,16 @@ type WSTaskAssign struct {
 	// zero-numbered external items both resolved to "repo#0" and the
 	// double-assignment guard treated them as the SAME task — one would block
 	// the other, and a completion for one would settle the other.
-	Key        string `json:"key,omitempty"`
-	SourceType string `json:"source_type,omitempty"`
-	ExternalID string `json:"external_id,omitempty"`
-	URL        string `json:"url,omitempty"`
+	Key                string `json:"key,omitempty"`
+	SourceType         string `json:"source_type,omitempty"`
+	ExternalID         string `json:"external_id,omitempty"`
+	URL                string `json:"url,omitempty"`
+	ContinuityPR       int    `json:"continuity_pr,omitempty"`
+	ExistingHeadRepo   string `json:"existing_head_repo,omitempty"`
+	ExistingHeadBranch string `json:"existing_head_branch,omitempty"`
+	ExpectedHeadSHA    string `json:"expected_head_sha,omitempty"`
+	BaseBranch         string `json:"base_branch,omitempty"`
+	OriginalPRAuthor   string `json:"original_pr_author,omitempty"`
 }
 
 // identityKey returns the canonical identity of the assigned item. It prefers
@@ -1514,6 +1527,56 @@ func (h *ContributeWSHub) verifyReportedPRDetail(assignedRepo, prURL, contributo
 		logArgs = append(logArgs, "error", res.Err.Error())
 	}
 	h.logger.Warn("[contribute-ws] reported PR NOT verified — treating completion as no-PR", logArgs...)
+	return res
+}
+
+func (h *ContributeWSHub) verifyTaskDelivery(task *WSTaskAssign, prURL, contributorUsername string) ghpkg.PRVerification {
+	if task == nil || task.ContinuityPR == 0 {
+		if task == nil {
+			return ghpkg.PRVerification{Reason: "no assigned task"}
+		}
+		return h.verifyReportedPRDetail(task.Repo, prURL, contributorUsername)
+	}
+	if prURL == "" {
+		return ghpkg.PRVerification{Reason: "no PR URL reported"}
+	}
+	if h.server == nil || h.server.deps == nil || h.server.deps.GHClient == nil {
+		return ghpkg.PRVerification{Reason: "no github client configured", Err: ghpkg.ErrNoGitHubClient}
+	}
+	ctx := h.server.deps.Ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	rec := continuity.Record{
+		Ref:            continuity.PRRef{Repo: task.Repo, Number: task.ContinuityPR},
+		OriginalAuthor: task.OriginalPRAuthor, HeadRepo: task.ExistingHeadRepo,
+		HeadBranch: task.ExistingHeadBranch, BaseBranch: task.BaseBranch,
+		ObservedHeadSHA: task.ExpectedHeadSHA, CurrentHeadSHA: task.ExpectedHeadSHA,
+		Active: true,
+	}
+	res := h.server.deps.GHClient.VerifyContinuityDelivery(ctx, rec, prURL, contributorUsername)
+	if res.Verified {
+		observe := h.server.deps.ObserveContinuityPR
+		if observe == nil {
+			observe = h.server.deps.GHClient.ObserveContinuityPR
+		}
+		if h.server.deps.ContinuityLedger == nil || observe == nil {
+			res.Verified = false
+			res.Reason = "continuity delivery authority unavailable"
+		} else if obs, err := observe(ctx, rec.Ref); err != nil {
+			res.Verified = false
+			res.Reason = "could not reacquire delivered pull request"
+			res.Err = err
+		} else if _, err := h.server.deps.ContinuityLedger.AcceptDelivery(obs, task.ExpectedHeadSHA, contributorUsername, "verified-contributor-delivery", time.Now().UTC()); err != nil {
+			res.Verified = false
+			res.Reason = "could not persist authoritative continuity delivery receipt"
+			res.Err = err
+		}
+	}
+	if !res.Verified {
+		h.logger.Warn("[contribute-ws] adopted PR continuation not verified — treating completion as no-PR",
+			"pr", rec.Ref.Key(), "username", contributorUsername, "reason", res.Reason, "error", res.Err)
+	}
 	return res
 }
 
@@ -3299,9 +3362,7 @@ func (h *ContributeWSHub) HandleWS(w http.ResponseWriter, r *http.Request) {
 					}
 					verifiedPR := ""
 					var prDetail ghpkg.PRVerification
-					if completedTask != nil {
-						prDetail = h.verifyReportedPRDetail(completedTask.Repo, msg.PRURL, contributor.profile.GitHubUsername)
-					}
+					prDetail = h.verifyTaskDelivery(completedTask, msg.PRURL, contributor.profile.GitHubUsername)
 					if prDetail.Verified {
 						verifiedPR = msg.PRURL
 						// Off the read loop, deliberately. This is cosmetic
@@ -4010,7 +4071,8 @@ const (
 	taskUnavailableNoMatchingWork = "no_matching_work"
 	// taskUnavailableRoleNotPermitted: the relay requested a spoke agent role, but
 	// the hive config/tier/grant policy does not allow this contributor to claim it.
-	taskUnavailableRoleNotPermitted = "agent_role_not_permitted"
+	taskUnavailableRoleNotPermitted  = "agent_role_not_permitted"
+	taskUnavailableContinuityChanged = "continuity_state_changed"
 )
 
 // identityOf returns the stable key that groups a contributor's live
@@ -4136,6 +4198,20 @@ func buildTaskPromptForRef(ref worksource.Ref, title string) string {
 			sourceLabel(ref.SourceType), ref.URL)
 	}
 	return buildTaskPromptBody(repoFull, issueRef, title, sourceHint)
+}
+
+func buildContinuityTaskPrompt(rec continuity.Record) string {
+	return fmt.Sprintf(
+		"Continue existing PR #%d in %s on the same existing branch %s at observed head %s. "+
+			"This is adopted brownfield work: preserve original PR author %s and all historical commits. "+
+			"Clone the existing head repository %s into $HIVE_WORKSPACE_DIR, run git fetch, checkout %s, "+
+			"and verify HEAD is exactly %s before editing. If HEAD moved, stop and report HIVE_CONTINUITY_HEAD_MOVED; "+
+			"do not overwrite or merge around concurrent work. Add new signed commits with your own attribution and push "+
+			"to the same existing branch. Do not force push, rebase, amend, squash, or rewrite authors. Do not create a replacement branch. "+
+			"Do not create a replacement PR, change draft state, remove hold, or merge. Base branch is %s. Run the relevant tests and "+
+			"report the existing PR URL when complete.",
+		rec.Ref.Number, rec.Ref.Repo, rec.HeadBranch, rec.ObservedHeadSHA, rec.OriginalAuthor,
+		rec.HeadRepo, rec.HeadBranch, rec.ObservedHeadSHA, rec.BaseBranch)
 }
 
 // taskIDSegment is the per-item component of a task id. For GitHub-backed work
@@ -4570,12 +4646,18 @@ func (h *ContributeWSHub) selectTask(c *ContributorConnection) *WSMessage {
 		// (kubestellar/hive#4245). Every exclusion below keys on ref.Key(), so
 		// two zero-numbered external items are distinct work rather than one
 		// shared "repo#0".
-		ref    worksource.Ref
-		title  string
-		url    string
-		labels []string
-		lane   string
-		isOwn  bool
+		ref                worksource.Ref
+		title              string
+		url                string
+		labels             []string
+		lane               string
+		isOwn              bool
+		continuityPR       int
+		existingHeadRepo   string
+		existingHeadBranch string
+		expectedHeadSHA    string
+		baseBranch         string
+		originalPRAuthor   string
 		// interestMatch is true when the issue carries a label the contributor has
 		// opted into (#2637). It is a SOFT priority tier below own-work: matching
 		// work is offered first, but a contributor with no match still gets other
@@ -4776,8 +4858,14 @@ func (h *ContributeWSHub) selectTask(c *ContributorConnection) *WSMessage {
 				// The issue's own labels travel with the candidate so the chosen
 				// task_assign can populate the Labels envelope field (kubestellar/
 				// hive#2393 item 8). They're already computed for filtering above.
-				labels: labels,
-				lane:   lane,
+				labels:             labels,
+				lane:               lane,
+				continuityPR:       intFromAny(issue["continuity_pr"]),
+				existingHeadRepo:   stringFromAny(issue["existing_head_repo"]),
+				existingHeadBranch: stringFromAny(issue["existing_head_branch"]),
+				expectedHeadSHA:    stringFromAny(issue["expected_head_sha"]),
+				baseBranch:         stringFromAny(issue["base_branch"]),
+				originalPRAuthor:   stringFromAny(issue["original_pr_author"]),
 				// "Own work" is the only #2390 signal available today: the
 				// candidate was authored by the connected contributor. When the
 				// username is unknown (empty), nothing is own → we keep today's
@@ -4858,6 +4946,23 @@ func (h *ContributeWSHub) selectTask(c *ContributorConnection) *WSMessage {
 		h.logger.Info("[contribute-ws] prioritizing contributor's own work (#2390)",
 			"username", ownUsername, "repo", chosen.repoFull, "number", chosen.number)
 	}
+	if chosen.continuityPR > 0 {
+		if h.server == nil || h.server.deps == nil || h.server.deps.ValidateContinuityHead == nil {
+			h.logger.Warn("[contribute-ws] continuity assignment withheld: exact-head validator unavailable",
+				"repo", chosen.repoFull, "pr", chosen.continuityPR)
+			return h.taskUnavailable(taskUnavailableContinuityChanged)
+		}
+		ctx := h.server.deps.Ctx
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		ref := continuity.PRRef{Repo: chosen.repoFull, Number: chosen.continuityPR}
+		if err := h.server.deps.ValidateContinuityHead(ctx, ref, chosen.expectedHeadSHA, chosen.existingHeadBranch); err != nil {
+			h.logger.Warn("[contribute-ws] continuity assignment withheld: adopted head changed or became inaccessible",
+				"repo", chosen.repoFull, "pr", chosen.continuityPR, "error", err)
+			return h.taskUnavailable(taskUnavailableContinuityChanged)
+		}
+	}
 
 	// Mint through the shared path so task_assign and the heartbeat token-refresh
 	// advertise tokens minted the same way (#2393 item 2). tokenMintedAt below
@@ -4891,8 +4996,22 @@ func (h *ContributeWSHub) selectTask(c *ContributorConnection) *WSMessage {
 	// itself carries the #2545 workspace-clone instruction (real checkout into
 	// $HIVE_WORKSPACE_DIR rather than a fork-only --clone=false).
 	prompt := buildTaskPromptForRef(chosen.ref, chosen.title)
+	kind := "issue"
+	if chosen.continuityPR > 0 {
+		kind = "pull_request_continuation"
+		prompt = buildContinuityTaskPrompt(continuity.Record{
+			Ref:            continuity.PRRef{Repo: chosen.repoFull, Number: chosen.continuityPR},
+			OriginalAuthor: chosen.originalPRAuthor, HeadRepo: chosen.existingHeadRepo,
+			HeadBranch: chosen.existingHeadBranch, BaseBranch: chosen.baseBranch,
+			ObservedHeadSHA: chosen.expectedHeadSHA,
+		})
+	}
 	if requestedRole != "" {
-		prompt = buildRoleTaskPromptForRef(chosen.ref, chosen.title, requestedRole, h.roleKickPrompt(requestedRole))
+		if chosen.continuityPR == 0 {
+			prompt = buildRoleTaskPromptForRef(chosen.ref, chosen.title, requestedRole, h.roleKickPrompt(requestedRole))
+		} else {
+			prompt += "\n\nApply this contributor role policy without changing the Continuity branch/history constraints:\n" + h.roleKickPrompt(requestedRole)
+		}
 	}
 	// #4105: tell the agent up front — from the hub's own handshake-recorded
 	// invocation values — the exact attribution trailer its PR body must end
@@ -4907,16 +5026,22 @@ func (h *ContributeWSHub) selectTask(c *ContributorConnection) *WSMessage {
 
 	c.mu.Lock()
 	c.currentTask = &WSTaskAssign{
-		TaskID:     taskID,
-		Kind:       "issue",
-		Role:       requestedRole,
-		Repo:       chosen.repoFull,
-		Number:     chosen.number,
-		Title:      chosen.title,
-		Key:        chosen.ref.Key(),
-		SourceType: chosen.ref.SourceType,
-		ExternalID: chosen.ref.ExternalID,
-		URL:        chosen.url,
+		TaskID:             taskID,
+		Kind:               kind,
+		Role:               requestedRole,
+		Repo:               chosen.repoFull,
+		Number:             chosen.number,
+		Title:              chosen.title,
+		Key:                chosen.ref.Key(),
+		SourceType:         chosen.ref.SourceType,
+		ExternalID:         chosen.ref.ExternalID,
+		URL:                chosen.url,
+		ContinuityPR:       chosen.continuityPR,
+		ExistingHeadRepo:   chosen.existingHeadRepo,
+		ExistingHeadBranch: chosen.existingHeadBranch,
+		ExpectedHeadSHA:    chosen.expectedHeadSHA,
+		BaseBranch:         chosen.baseBranch,
+		OriginalPRAuthor:   chosen.originalPRAuthor,
 	}
 	c.currentTaskGen = gen
 	// #2568: start the hub-owned lease clock. task_progress renews it; cleanupLoop
@@ -4959,7 +5084,7 @@ func (h *ContributeWSHub) selectTask(c *ContributorConnection) *WSMessage {
 		Seq:     h.nextSeq(),
 		TaskID:  taskID,
 		TaskGen: gen,
-		Kind:    "issue",
+		Kind:    kind,
 		Role:    requestedRole,
 		Repo:    chosen.repoFull,
 		Number:  chosen.number,
@@ -4969,9 +5094,15 @@ func (h *ContributeWSHub) selectTask(c *ContributorConnection) *WSMessage {
 		// assignment carries exactly the fields it always did, and these tell a
 		// relay working a Linear or Jira item what the item actually IS instead
 		// of leaving it to infer one from `number: 0`.
-		TaskKey:    chosen.ref.Key(),
-		SourceType: chosen.ref.SourceType,
-		ExternalID: chosen.ref.ExternalID,
+		TaskKey:            chosen.ref.Key(),
+		SourceType:         chosen.ref.SourceType,
+		ExternalID:         chosen.ref.ExternalID,
+		ContinuityPR:       chosen.continuityPR,
+		ExistingHeadRepo:   chosen.existingHeadRepo,
+		ExistingHeadBranch: chosen.existingHeadBranch,
+		ExpectedHeadSHA:    chosen.expectedHeadSHA,
+		BaseBranch:         chosen.baseBranch,
+		OriginalPRAuthor:   chosen.originalPRAuthor,
 		// #2537: NO github_token / token_expires_at here. The scoped credential is
 		// split out of task_assign and delivered only after acceptance (see
 		// pendingToken / deliverTaskCredential). task_assign now carries exactly the

@@ -1103,6 +1103,20 @@ func buildRepos(cfg *config.Config, actionable *github.ActionableResult) []Front
 		for _, pr := range actionable.PRs.Items {
 			prsByRepo[pr.Repo] = append(prsByRepo[pr.Repo], pr)
 		}
+		for _, rec := range actionable.Continuations.Items {
+			repoKey := rec.Ref.Repo
+			for _, configured := range cfg.Project.Repos {
+				full := configured
+				if !strings.Contains(configured, "/") {
+					full = cfg.Project.Org + "/" + configured
+				}
+				if strings.EqualFold(full, rec.Ref.Repo) {
+					repoKey = configured
+					break
+				}
+			}
+			issuesByRepo[repoKey] = append(issuesByRepo[repoKey], github.ContinuityIssue(rec))
+		}
 	}
 
 	for _, repoName := range cfg.Project.Repos {

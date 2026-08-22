@@ -16,6 +16,7 @@ import (
 
 	gh "github.com/google/go-github/v72/github"
 	"github.com/kubestellar/hive/pkg/config"
+	"github.com/kubestellar/hive/pkg/continuity"
 	"github.com/kubestellar/hive/pkg/ioscan"
 	"github.com/kubestellar/hive/pkg/logscrub"
 )
@@ -46,8 +47,10 @@ type Client struct {
 	// can bypass it. Guarded because config reload / hub heartbeat delivery
 	// re-applies it while the enumeration goroutine reads it. Zero value =
 	// admit everything (pre-existing behavior).
-	issueFilterMu sync.RWMutex
-	issueFilter   config.IssueFilterConfig
+	issueFilterMu   sync.RWMutex
+	issueFilter     config.IssueFilterConfig
+	claimAdoptionMu sync.RWMutex
+	claimAdoption   ClaimAdoptionLookup
 	// autoMergeLabel is the configured merger-queue label. Guarded because
 	// config reload re-applies it while request handlers read it.
 	autoMergeLabelMu sync.RWMutex
@@ -132,6 +135,30 @@ type Client struct {
 	advisoryDigestPosts map[string]int
 }
 
+// ClaimAdoptionLookup reports whether an exact PR owns a canonical work slice
+// through active, durable Continuity authority. It is process-local projection
+// only; the backing ledger remains authoritative.
+type ClaimAdoptionLookup func(prRepo string, prNumber int, workKey string) bool
+
+func (c *Client) SetClaimAdoptionLookup(lookup ClaimAdoptionLookup) {
+	if c == nil {
+		return
+	}
+	c.claimAdoptionMu.Lock()
+	c.claimAdoption = lookup
+	c.claimAdoptionMu.Unlock()
+}
+
+func (c *Client) isClaimAdopted(prRepo string, prNumber int, workKey string) bool {
+	if c == nil {
+		return false
+	}
+	c.claimAdoptionMu.RLock()
+	lookup := c.claimAdoption
+	c.claimAdoptionMu.RUnlock()
+	return lookup != nil && lookup(prRepo, prNumber, workKey)
+}
+
 func (c *Client) SetCanaryScanner(enabled, failClosed bool, reg *ioscan.CanaryRegistry, onLeak func(ioscan.CanaryLeak)) {
 	if c == nil {
 		return
@@ -206,6 +233,15 @@ type Issue struct {
 	ComplexityTier string `json:"complexity_tier,omitempty"`
 	ModelRec       string `json:"model_recommendation,omitempty"`
 	Lane           string `json:"lane,omitempty"`
+	// Continuity fields bind an explicitly adopted pre-existing PR to the
+	// exact branch/head that a contributor may continue. They are absent for
+	// every ordinary issue and cannot be populated by GitHub labels.
+	ContinuityPR       int    `json:"continuity_pr,omitempty"`
+	ExistingHeadRepo   string `json:"existing_head_repo,omitempty"`
+	ExistingHeadBranch string `json:"existing_head_branch,omitempty"`
+	ExpectedHeadSHA    string `json:"expected_head_sha,omitempty"`
+	BaseBranch         string `json:"base_branch,omitempty"`
+	OriginalPRAuthor   string `json:"original_pr_author,omitempty"`
 }
 
 type PullRequest struct {
@@ -292,12 +328,18 @@ func mergeableFromState(state string, mergeable *bool) Mergeable {
 }
 
 type ActionableResult struct {
-	GeneratedAt time.Time             `json:"generated_at"`
-	Issues      IssueResult           `json:"issues"`
-	PRs         PRResult              `json:"prs"`
-	Hold        HoldResult            `json:"hold"`
-	Clusters    []IssueCluster        `json:"clusters,omitempty"`
-	TotalByRepo map[string]RepoCounts `json:"total_by_repo,omitempty"`
+	GeneratedAt   time.Time             `json:"generated_at"`
+	Issues        IssueResult           `json:"issues"`
+	PRs           PRResult              `json:"prs"`
+	Hold          HoldResult            `json:"hold"`
+	Clusters      []IssueCluster        `json:"clusters,omitempty"`
+	TotalByRepo   map[string]RepoCounts `json:"total_by_repo,omitempty"`
+	Continuations ContinuityResult      `json:"continuations,omitempty"`
+}
+
+type ContinuityResult struct {
+	Count int                 `json:"count"`
+	Items []continuity.Record `json:"items,omitempty"`
 }
 
 type RepoCounts struct {

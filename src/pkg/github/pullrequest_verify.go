@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/kubestellar/hive/pkg/continuity"
 )
 
 // PRRef identifies a pull request parsed out of a GitHub PR URL.
@@ -135,6 +137,66 @@ func (c *Client) VerifyReportedPR(ctx context.Context, expectedRepo, prURL, expe
 		return v
 	}
 
+	v.Verified = true
+	return v
+}
+
+// VerifyContinuityDelivery verifies that an adopted pull request advanced on
+// its exact existing branch without rewriting history or changing its original
+// author. Unlike VerifyReportedPR, the PR is expected to predate the
+// contributor: only commits after the adoption head must be attributed to the
+// current contributor.
+func (c *Client) VerifyContinuityDelivery(ctx context.Context, adopted continuity.Record, prURL, contributorUsername string) PRVerification {
+	if c == nil || c.client == nil {
+		return PRVerification{Reason: "no github client configured", Err: ErrNoGitHubClient}
+	}
+	ref, err := ParsePRURL(prURL)
+	if err != nil {
+		return PRVerification{Reason: "unparseable PR URL: " + err.Error()}
+	}
+	if !strings.EqualFold(ref.FullName(), adopted.Ref.Repo) || ref.Number != adopted.Ref.Number {
+		return PRVerification{Reason: "reported PR is not the adopted pull request"}
+	}
+	pr, _, err := c.client.PullRequests.Get(ctx, ref.Owner, ref.Repo, ref.Number)
+	if err != nil {
+		return PRVerification{Reason: "github lookup failed", Err: err}
+	}
+	if pr == nil {
+		return PRVerification{Reason: "github returned no pull request"}
+	}
+	v := PRVerification{
+		Author: safeGetLogin(pr.GetUser()), BaseRepo: pr.GetBase().GetRepo().GetFullName(),
+		Merged: pr.GetMerged(), Title: pr.GetTitle(),
+	}
+	if !strings.EqualFold(v.Author, adopted.OriginalAuthor) {
+		v.Reason = fmt.Sprintf("original PR author changed from %q to %q", adopted.OriginalAuthor, v.Author)
+		return v
+	}
+	if !strings.EqualFold(pr.GetHead().GetRepo().GetFullName(), adopted.HeadRepo) || pr.GetHead().GetRef() != adopted.HeadBranch || pr.GetBase().GetRef() != adopted.BaseBranch {
+		v.Reason = "adopted head repository, head branch, or base branch changed"
+		return v
+	}
+	currentHead := pr.GetHead().GetSHA()
+	if currentHead == "" || currentHead == adopted.ObservedHeadSHA {
+		v.Reason = "adopted head did not advance"
+		return v
+	}
+	comparison, _, err := c.client.Repositories.CompareCommits(ctx, ref.Owner, ref.Repo, adopted.ObservedHeadSHA, currentHead, nil)
+	if err != nil {
+		return PRVerification{Author: v.Author, BaseRepo: v.BaseRepo, Reason: "could not prove adopted head ancestry", Err: err}
+	}
+	if comparison.GetStatus() != "ahead" || comparison.GetAheadBy() < 1 || len(comparison.Commits) == 0 {
+		v.Reason = fmt.Sprintf("adopted history is not a non-empty fast-forward (status %q)", comparison.GetStatus())
+		return v
+	}
+	for _, commit := range comparison.Commits {
+		commitAuthor := safeGetLogin(commit.GetAuthor())
+		commitCommitter := safeGetLogin(commit.GetCommitter())
+		if contributorUsername == "" || (!strings.EqualFold(commitAuthor, contributorUsername) && !strings.EqualFold(commitCommitter, contributorUsername)) {
+			v.Reason = fmt.Sprintf("new commit %s is not attributed to contributor %q", commit.GetSHA(), contributorUsername)
+			return v
+		}
+	}
 	v.Verified = true
 	return v
 }

@@ -105,6 +105,11 @@ type IssueClaim struct {
 	// claimed to finish it. Also omitempty-false, so pre-#3980 ledgers unmarshal
 	// as strong claims and keep their existing suppression across the upgrade.
 	Reference bool `json:"reference,omitempty"`
+	// Adopted marks an external PR whose exact branch/head and owned acceptance
+	// slice were explicitly promoted by an owner through the Continuity ledger.
+	// Unlike a plain external/reference claim, it suppresses scheduled-agent
+	// replacement work while adoption remains active. Labels never set it.
+	Adopted bool `json:"adopted,omitempty"`
 }
 
 // claimRank orders claims by evidential strength, highest first. It exists so
@@ -422,7 +427,7 @@ func (c *Client) FetchClaims(ctx context.Context, identity HiveIdentity) ([]Issu
 				}
 
 				for _, ref := range refs {
-					claims = append(claims, IssueClaim{
+					claim := IssueClaim{
 						Repo:           ref.Repo,
 						Issue:          ref.Issue,
 						PRNumber:       pr.GetNumber(),
@@ -432,7 +437,9 @@ func (c *Client) FetchClaims(ctx context.Context, identity HiveIdentity) ([]Issu
 						ObservedAt:     now,
 						ExternalAuthor: external,
 						Reference:      reference,
-					})
+					}
+					claim.Adopted = c.isClaimAdopted(repo, pr.GetNumber(), claim.Key())
+					claims = append(claims, claim)
 				}
 			}
 			if resp == nil || resp.NextPage == 0 {
@@ -704,6 +711,16 @@ func FilterClaimedIssues(result *ActionableResult, ledger *ClaimLedger, redStale
 		// intact so a stranger's junk PR cannot freeze the hive's own
 		// pipeline. External claims exist for the contribute queue, which
 		// consults the ledger directly (dashboard selectTask).
+		if claim.Adopted {
+			suppressed++
+			if logger != nil {
+				logger.Info("suppressing issue owned by an adopted existing PR",
+					"repo", issue.Repo, "issue", issue.Number,
+					"claimed_by_pr", claim.PRNumber, "pr_url", claim.PRURL,
+					"pr_author", claim.PRAuthor)
+			}
+			continue
+		}
 		if claim.ExternalAuthor {
 			kept = append(kept, issue)
 			continue
