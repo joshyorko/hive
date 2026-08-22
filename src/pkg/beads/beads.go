@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -102,6 +103,45 @@ type Bead struct {
 	// never pruned for staleness.
 	LastSeenAt *flexTime `json:"last_seen_at,omitempty"`
 	DependsOn  []string  `json:"depends_on,omitempty"`
+}
+
+// CompletionReceipt is the durable evidence required by the agent-facing bd
+// CLI before it may move a bead into a terminal state.
+type CompletionReceipt struct {
+	Kind  string
+	Ref   string
+	Actor string
+}
+
+var (
+	mergedPRReceiptRE     = regexp.MustCompile(`^https://[^/]+/[^/]+/[^/]+/pull/[0-9]+$`)
+	sourceCommitReceiptRE = regexp.MustCompile(`^https://[^/]+/[^/]+/[^/]+/commit/[0-9a-fA-F]{40}$`)
+)
+
+func validateCompletionReceipt(r CompletionReceipt) error {
+	r.Kind = strings.TrimSpace(r.Kind)
+	r.Ref = strings.TrimSpace(r.Ref)
+	r.Actor = strings.TrimSpace(r.Actor)
+	if r.Actor == "" {
+		return fmt.Errorf("completion receipt requires an actor")
+	}
+	switch r.Kind {
+	case "merged_pr":
+		if !mergedPRReceiptRE.MatchString(r.Ref) {
+			return fmt.Errorf("merged_pr completion requires an authoritative pull request URL")
+		}
+	case "source_verified":
+		if !sourceCommitReceiptRE.MatchString(r.Ref) {
+			return fmt.Errorf("source_verified completion requires an immutable remote commit URL")
+		}
+	case "operator_decision", "superseded":
+		if !strings.HasPrefix(r.Ref, "operator:") || strings.TrimSpace(strings.TrimPrefix(r.Ref, "operator:")) == "" {
+			return fmt.Errorf("%s completion requires an operator receipt reference", r.Kind)
+		}
+	default:
+		return fmt.Errorf("unsupported completion evidence kind %q", r.Kind)
+	}
+	return nil
 }
 
 // Meta returns a metadata value as a string, or "" if missing/non-string.
@@ -403,6 +443,25 @@ func (s *Store) Close(id string) error {
 		now := flexTime{time.Now().UTC()}
 		b.Status = StatusClosed
 		b.ClosedAt = &now
+	})
+}
+
+// CloseWithReceipt closes a bead and persists the authoritative evidence in
+// the same store update. Local commits and worktree state are deliberately not
+// accepted receipt kinds.
+func (s *Store) CloseWithReceipt(id string, receipt CompletionReceipt) error {
+	if err := validateCompletionReceipt(receipt); err != nil {
+		return err
+	}
+	return s.Update(id, func(b *Bead) {
+		if b.Metadata == nil {
+			b.Metadata = make(map[string]interface{})
+		}
+		b.Metadata["completion_evidence_kind"] = strings.TrimSpace(receipt.Kind)
+		b.Metadata["completion_evidence_ref"] = strings.TrimSpace(receipt.Ref)
+		b.Metadata["completion_evidence_actor"] = strings.TrimSpace(receipt.Actor)
+		b.Metadata["completion_evidence_at"] = time.Now().UTC().Format(time.RFC3339Nano)
+		b.Status = StatusClosed
 	})
 }
 

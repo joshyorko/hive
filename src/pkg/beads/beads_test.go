@@ -262,6 +262,56 @@ func TestClose_SetsStatusClosedWithTimestamp(t *testing.T) {
 	}
 }
 
+func TestCloseWithReceipt_RejectsLocalOnlyEvidence(t *testing.T) {
+	s, err := NewStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := s.Create("scanner finding", TypeAdvisory, PriorityHigh, "scanner", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = s.CloseWithReceipt(b.ID, CompletionReceipt{
+		Kind: "local_commit", Ref: "a4a9159", Actor: "scanner",
+	})
+	if err == nil {
+		t.Fatal("local-only commit closed the bead without authoritative delivery")
+	}
+	got, _ := s.Get(b.ID)
+	if got.Status != StatusOpen {
+		t.Fatalf("status after rejected receipt = %q, want open", got.Status)
+	}
+}
+
+func TestCloseWithReceipt_PersistsAuthoritativeEvidence(t *testing.T) {
+	dir := t.TempDir()
+	s, err := NewStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := s.Create("scanner finding", TypeAdvisory, PriorityHigh, "scanner", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref := "https://github.com/acme/widgets/pull/42"
+	if err := s.CloseWithReceipt(b.ID, CompletionReceipt{Kind: "merged_pr", Ref: ref, Actor: "scanner"}); err != nil {
+		t.Fatalf("authoritative receipt denied: %v", err)
+	}
+
+	reloaded, err := NewStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := reloaded.Get(b.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != StatusClosed || got.Meta("completion_evidence_kind") != "merged_pr" || got.Meta("completion_evidence_ref") != ref {
+		t.Fatalf("persisted bead = status %q metadata %#v", got.Status, got.Metadata)
+	}
+}
+
 // TestList_NoFilter returns all beads.
 func TestList_NoFilter(t *testing.T) {
 	dir := t.TempDir()

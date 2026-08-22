@@ -1,8 +1,11 @@
 package agent
 
 import (
+	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/kubestellar/hive/pkg/beads"
 	"github.com/kubestellar/hive/pkg/config"
 )
 
@@ -65,5 +68,63 @@ func TestEffectiveBackend_HonorsOverride(t *testing.T) {
 	}
 	if _, ok := m.EffectiveBackend("ghost"); ok {
 		t.Error("unknown agent must return ok=false")
+	}
+}
+
+func TestAuthorizeIssueOpen_ScannerSecurityFindingRequiresOperatorAuthorization(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "scanner")
+	store, err := beads.NewStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	finding, err := store.Create("private path traversal finding", beads.TypeAdvisory, beads.PriorityCritical, "scanner", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SetMetadata(finding.ID, "finding_type", "security"); err != nil {
+		t.Fatal(err)
+	}
+
+	m := testManager(5)
+	m.agents["scanner"] = &AgentProcess{Name: "scanner", Config: config.AgentConfig{
+		Mode:     "ISSUES_AND_PRS",
+		BeadsDir: dir,
+	}}
+
+	err = m.AuthorizeIssueOpen("scanner", 0, "issue", "security", finding.ID)
+	if err == nil || !strings.Contains(err.Error(), "explicit operator authorization") {
+		t.Fatalf("security finding without operator authorization: got %v", err)
+	}
+
+	m.agents["scanner"].Config.SecurityDisclosureAllowlist = []string{finding.ID}
+	if err := m.AuthorizeIssueOpen("scanner", 0, "issue", "security", finding.ID); err != nil {
+		t.Fatalf("operator-authorized security finding denied: %v", err)
+	}
+}
+
+func TestAuthorizeIssueOpen_ScannerOrdinaryFindingRequiresDurableBead(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "scanner")
+	store, err := beads.NewStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	finding, err := store.Create("ordinary parser bug", beads.TypeAdvisory, beads.PriorityHigh, "scanner", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SetMetadata(finding.ID, "finding_type", "bug"); err != nil {
+		t.Fatal(err)
+	}
+
+	m := testManager(5)
+	m.agents["scanner"] = &AgentProcess{Name: "scanner", Config: config.AgentConfig{
+		Mode:     "ISSUES_ONLY",
+		BeadsDir: dir,
+	}}
+	if err := m.AuthorizeIssueOpen("scanner", 0, "issue", "bug", finding.ID); err != nil {
+		t.Fatalf("ordinary durable scanner finding denied: %v", err)
+	}
+	if err := m.AuthorizeIssueOpen("scanner", 0, "issue", "bug", "missing"); err == nil {
+		t.Fatal("scanner issue without a durable finding bead was authorized")
 	}
 }

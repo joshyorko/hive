@@ -30,7 +30,7 @@ REQ_DIR="/var/run/hive-metrics/issue-requests"
 KIND="issue"
 if [ "${1:-}" = "comment" ]; then KIND="comment"; shift; fi
 
-REPO=""; TITLE=""; BODY=""; BODY_FILE=""; NUMBER=""
+REPO=""; TITLE=""; BODY=""; BODY_FILE=""; NUMBER=""; SENSITIVITY=""; FINDING_REF=""
 LABELS=()
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -40,12 +40,16 @@ while [ $# -gt 0 ]; do
     --body-file|-F) BODY_FILE="$2"; shift 2;;
     --label|-l) LABELS+=("$2"); shift 2;;
     --number) NUMBER="$2"; shift 2;;
+	--sensitivity) SENSITIVITY="$2"; shift 2;;
+	--finding-ref) FINDING_REF="$2"; shift 2;;
     --repo=*) REPO="${1#*=}"; shift;;
     --title=*) TITLE="${1#*=}"; shift;;
     --body=*) BODY="${1#*=}"; shift;;
     --body-file=*) BODY_FILE="${1#*=}"; shift;;
     --label=*) LABELS+=("${1#*=}"); shift;;
     --number=*) NUMBER="${1#*=}"; shift;;
+	--sensitivity=*) SENSITIVITY="${1#*=}"; shift;;
+	--finding-ref=*) FINDING_REF="${1#*=}"; shift;;
     # Tolerate gh flags we don't need; skip a following value only for flags
     # that take one, so a bare flag can't swallow the next real argument.
     --assignee|-a|--milestone|-m|--project|-p|--template|-T) shift 2;;
@@ -113,12 +117,16 @@ if ! command -v python3 >/dev/null 2>&1; then
 fi
 
 LABELS_JSON="$(printf '%s\n' "${LABELS[@]:-}" | python3 -c 'import json,sys; print(json.dumps([x.rstrip("\n") for x in sys.stdin if x.rstrip("\n")]))')"
-python3 - "$TEMP_FILE" "$REQ_FILE" "$KIND" "$REPO" "$TITLE" "$BODY" "$AGENT" "$LABELS_JSON" "${NUMBER:-0}" <<'PY'
+python3 - "$TEMP_FILE" "$REQ_FILE" "$KIND" "$REPO" "$TITLE" "$BODY" "$AGENT" "$LABELS_JSON" "${NUMBER:-0}" "$SENSITIVITY" "$FINDING_REF" <<'PY'
 import json, os, sys
-temporary, path, kind, repo, title, body, agent, labels, number = sys.argv[1:10]
+temporary, path, kind, repo, title, body, agent, labels, number, sensitivity, finding_ref = sys.argv[1:12]
 labels = [part.strip() for value in json.loads(labels)
           for part in value.split(",") if part.strip()]
 req = {"kind": kind, "repo": repo, "agent": agent}
+if sensitivity:
+    req["sensitivity"] = sensitivity
+if finding_ref:
+    req["finding_ref"] = finding_ref
 if kind == "comment":
     req["number"] = int(number)
     req["body"] = body

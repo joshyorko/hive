@@ -23,6 +23,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/kubestellar/hive/pkg/beads"
 	"github.com/kubestellar/hive/pkg/claude"
 	"github.com/kubestellar/hive/pkg/config"
 	ghpkg "github.com/kubestellar/hive/pkg/github"
@@ -6840,7 +6841,7 @@ func (m *Manager) AuthorizePROpen(agentName string, fileUID int) error {
 // "comment" requests need the same (commenting is an issue-write). The same
 // UID forge-resistance applies: the request file's owner must BE the claimed
 // agent. A nil manager or unknown agent is denied.
-func (m *Manager) AuthorizeIssueOpen(agentName string, fileUID int, kind string) error {
+func (m *Manager) AuthorizeIssueOpen(agentName string, fileUID int, kind, sensitivity, findingRef string) error {
 	if strings.TrimSpace(agentName) == "" {
 		return fmt.Errorf("no agent named in the request")
 	}
@@ -6862,6 +6863,41 @@ func (m *Manager) AuthorizeIssueOpen(agentName string, fileUID int, kind string)
 	if !m.agentMode(agent).CanCreateIssues() {
 		return fmt.Errorf("agent %q may not create issues or comments at this ACMM level (mode %s)",
 			agentName, m.agentMode(agent).String())
+	}
+	// Scanner findings must exist durably before the App mutates GitHub. This is
+	// also the disclosure boundary: a bead classified as security stays private
+	// unless the operator explicitly allowlists that exact bead ID in scanner's
+	// durable agent configuration.
+	if agentName == "scanner" || agent.Config.Role == "scanner" {
+		findingRef = strings.TrimSpace(findingRef)
+		if findingRef == "" {
+			return fmt.Errorf("scanner public issue/comment requires a durable finding bead")
+		}
+		store, err := beads.NewStore(agent.Config.BeadsDir)
+		if err != nil {
+			return fmt.Errorf("loading scanner finding store: %w", err)
+		}
+		finding, err := store.Get(findingRef)
+		if err != nil || finding.Actor != "scanner" || finding.Type != beads.TypeAdvisory {
+			return fmt.Errorf("scanner public issue/comment requires an existing scanner advisory bead %q", findingRef)
+		}
+		findingType := strings.ToLower(strings.TrimSpace(finding.Meta("finding_type")))
+		requestSensitivity := strings.ToLower(strings.TrimSpace(sensitivity))
+		if findingType == "security" && requestSensitivity != "security" {
+			return fmt.Errorf("security finding %q cannot be downgraded to ordinary disclosure", findingRef)
+		}
+		if requestSensitivity == "security" || findingType == "security" {
+			authorized := false
+			for _, allowed := range agent.Config.SecurityDisclosureAllowlist {
+				if strings.TrimSpace(allowed) == findingRef {
+					authorized = true
+					break
+				}
+			}
+			if !authorized {
+				return fmt.Errorf("security finding %q requires explicit operator authorization before public disclosure", findingRef)
+			}
+		}
 	}
 	return nil
 }

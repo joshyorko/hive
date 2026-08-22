@@ -258,7 +258,10 @@ func TestCmdCloseAndReopenViaUpdate(t *testing.T) {
 	}
 
 	captureStdout(t, func() {
-		cmdClose([]string{b.ID})
+		cmdClose([]string{b.ID,
+			"--evidence-kind", "source_verified",
+			"--evidence-ref", "https://github.com/acme/widgets/commit/0123456789abcdef0123456789abcdef01234567",
+			"--evidence-actor", "quality"})
 	})
 
 	// Verify closed via list, re-read from disk (cmdClose used its own store).
@@ -293,6 +296,64 @@ func TestCmdCloseAndReopenViaUpdate(t *testing.T) {
 	}
 	if !found {
 		t.Fatal("reopened bead not found in list")
+	}
+}
+
+func TestCloseBeadRequiresAuthoritativeDeliveryReceipt(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("BD_DIR", dir)
+	store, err := beads.NewStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := store.Create("soak finding", beads.TypeAdvisory, beads.PriorityHigh, "scanner", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := closeBead([]string{b.ID}); err == nil {
+		t.Fatal("bd close accepted no completion receipt")
+	}
+	if err := closeBead([]string{b.ID, "--evidence-kind", "local_commit", "--evidence-ref", "70b642e", "--evidence-actor", "scanner"}); err == nil {
+		t.Fatal("bd close accepted an unpushed local commit as authoritative completion")
+	}
+	if got, _ := reloadStore(t, dir).Get(b.ID); got.Status != beads.StatusOpen {
+		t.Fatalf("rejected close changed status to %q", got.Status)
+	}
+}
+
+func TestCloseBeadAcceptsMergedPRReceipt(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("BD_DIR", dir)
+	store, err := beads.NewStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := store.Create("delivered finding", beads.TypeAdvisory, beads.PriorityHigh, "scanner", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = closeBead([]string{b.ID, "--evidence-kind", "merged_pr", "--evidence-ref", "https://github.com/acme/widgets/pull/42", "--evidence-actor", "scanner"})
+	if err != nil {
+		t.Fatalf("bd close rejected merged PR receipt: %v", err)
+	}
+	got, _ := reloadStore(t, dir).Get(b.ID)
+	if got.Status != beads.StatusClosed || got.Meta("completion_evidence_kind") != "merged_pr" {
+		t.Fatalf("closed bead = status %q metadata %#v", got.Status, got.Metadata)
+	}
+}
+
+func TestValidateCLIStatusTransitionRejectsTerminalBypass(t *testing.T) {
+	for _, status := range []string{"closed", "done"} {
+		if err := validateCLIStatusTransition(status); err == nil {
+			t.Fatalf("bd update --status %s bypassed completion receipt", status)
+		}
+	}
+	for _, status := range []string{"open", "in_progress", "blocked"} {
+		if err := validateCLIStatusTransition(status); err != nil {
+			t.Fatalf("non-terminal status %s rejected: %v", status, err)
+		}
 	}
 }
 

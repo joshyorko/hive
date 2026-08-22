@@ -802,8 +802,12 @@ type AgentConfig struct {
 	StatsDisplay     []StatsDisplayEntry     `yaml:"stats_display" json:"stats_display,omitempty"`
 	ACMMLevels       []int                   `yaml:"acmm_levels" json:"acmm_levels,omitempty"`
 	Mode             string                  `yaml:"mode" json:"mode,omitempty"`
-	OnDemand         bool                    `yaml:"on_demand" json:"on_demand,omitempty"`
-	CavemanMode      string                  `yaml:"caveman_mode" json:"caveman_mode,omitempty"`
+	// SecurityDisclosureAllowlist is an operator-owned list of durable scanner
+	// finding bead IDs that may be disclosed through the public issue relay.
+	// Empty is the safe default: security findings remain private.
+	SecurityDisclosureAllowlist []string `yaml:"security_disclosure_allowlist,omitempty" json:"security_disclosure_allowlist,omitempty"`
+	OnDemand                    bool     `yaml:"on_demand" json:"on_demand,omitempty"`
+	CavemanMode                 string   `yaml:"caveman_mode" json:"caveman_mode,omitempty"`
 	// ExplainMode opts this agent into emitting EXPLAIN-prefixed reasoning
 	// lines alongside its tool calls, so an operator debugging "why did it do
 	// that" has something to read (#3887). Off by default because the
