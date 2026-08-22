@@ -13,12 +13,59 @@ package agent
 
 import (
 	"context"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/kubestellar/hive/pkg/config"
 )
+
+// TestSendKick_CodexMarkdownStaysInsideCLI exercises the real tmux boundary
+// with the package's interactive Codex stub. The stub exits to Bash on Ctrl-C
+// just like Codex does. Shell substitution in a kick must therefore remain
+// literal CLI input and must never create the sentinel file.
+func TestSendKick_CodexMarkdownStaysInsideCLI(t *testing.T) {
+	if !tmuxAvailable() {
+		t.Skip("tmux not available")
+	}
+	t.Setenv("HIVE_WORK_DIR", t.TempDir())
+	forceFastPaneShell(t)
+	stub := filepath.Join(stubBinDir, codexBackend)
+	stubBody := "#!/bin/sh\nprintf '%s\\n' '" + codexProductMarker + " " + codexInputPromptMarker + "'\nexec cat\n"
+	if err := os.WriteFile(stub, []byte(stubBody), 0o755); err != nil {
+		t.Fatalf("write Codex stub: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Remove(stub) })
+
+	m := NewManager(map[string]config.AgentConfig{
+		"worker": makeAgentConfig(codexBackend, "gpt-test"),
+	}, discardLogger(), ProjectContext{})
+	defer cleanupAgent(t, m, "worker")
+
+	if err := m.Start(context.Background(), "worker"); err != nil {
+		t.Fatalf("start Codex stub: %v", err)
+	}
+	if !m.waitForInputPromptForAgent(m.agents["worker"]) {
+		t.Fatal("Codex stub did not become ready")
+	}
+
+	sentinel := filepath.Join(t.TempDir(), "bash-executed-kick")
+	message := "Review this literal example: `touch " + sentinel + "`"
+	if err := m.SendKick("worker", message); err != nil {
+		t.Fatalf("SendKick: %v", err)
+	}
+	time.Sleep(500 * time.Millisecond)
+
+	if _, err := os.Stat(sentinel); !os.IsNotExist(err) {
+		t.Fatalf("Markdown kick escaped Codex and executed in Bash: stat err=%v", err)
+	}
+	if pane := m.captureTmuxPaneForAgent(m.agents["worker"]); !strings.Contains(pane, message) {
+		t.Fatalf("Codex stub did not receive the literal Markdown kick; pane=%q", pane)
+	}
+}
 
 // forceFastPaneShell pins the test tmux server's default-shell to /bin/sh so
 // freshly created panes accept input immediately. A developer's login shell
