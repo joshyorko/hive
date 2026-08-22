@@ -882,7 +882,18 @@ function runHeadlessTask(task) {
       writeHeadlessStatus(HEADLESS_STATE_WAITING);
       send({ type: 'ready', seq: nextSeq() });
     });
-  });
+    });
+
+  // Some CLI entry points (notably installed Codex) wait for EOF on stdin
+  // before processing a prompt passed on the command line.  Close the pipe
+  // immediately after spawning; custom/test child implementations may omit
+  // stdin or throw if it was already closed, neither of which should abort
+  // delivery.
+  try {
+    if (headlessChild && headlessChild.stdin && typeof headlessChild.stdin.end === 'function') {
+      headlessChild.stdin.end();
+    }
+  } catch (_) { /* stdin closure is best-effort; the child result is authoritative */ }
 }
 
 // A tmux pane can be left in bash's PS2 continuation state ("> ") when task

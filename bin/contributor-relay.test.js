@@ -25,11 +25,12 @@ const RELAY_PATH = path.join(__dirname, 'contributor-relay.sh');
 // bash and no WebSocket are ever touched.
 // ---------------------------------------------------------------------------
 
-function loadRelay({ backend = 'copilot', backendBinary = null, model = '', reasoningEffort = '', cliStates = ['ready'], procAlive = true, mode = 'interactive', execFileResult = null, statusFile = null, paneText = null, env = null, cliVersion = null } = {}) {
+function loadRelay({ backend = 'copilot', backendBinary = null, model = '', reasoningEffort = '', cliStates = ['ready'], procAlive = true, mode = 'interactive', execFileResult = null, statusFile = null, paneText = null, env = null, cliVersion = null, headlessStdin = 'present' } = {}) {
   const commands = [];
   const sent = [];
   // Records every execFile (headless one-shot) invocation: { bin, args, opts }.
   const execFileCalls = [];
+  const headlessStdinEnds = [];
   let stateIdx = 0;
   // Guard against a runaway loop in the code under test eating all memory.
   const MAX_RECORDED_COMMANDS = 10000;
@@ -78,6 +79,11 @@ function loadRelay({ backend = 'copilot', backendBinary = null, model = '', reas
     const callback = typeof opts === 'function' ? opts : cb;
     execFileCalls.push({ bin, args, opts: typeof opts === 'function' ? {} : opts });
     const child = { killed: false, kill() { this.killed = true; } };
+    if (headlessStdin === 'present') {
+      child.stdin = { end() { headlessStdinEnds.push(true); } };
+    } else if (headlessStdin === 'throws') {
+      child.stdin = { end() { throw new Error('stdin already closed'); } };
+    }
     const r = execFileResult || {};
     if (callback) {
       // Mirror execFile's async contract closely enough for the relay's logic:
@@ -170,6 +176,7 @@ function loadRelay({ backend = 'copilot', backendBinary = null, model = '', reas
   relay.__sent = sent;
   relay.__tmpDir = tmpDir;
   relay.__execFileCalls = execFileCalls;
+  relay.__headlessStdinEnds = headlessStdinEnds;
   relay.__headlessStatusFile = headlessStatusFile;
   relay.__readHeadlessStatus = () => {
     try { return JSON.parse(fs.readFileSync(headlessStatusFile, 'utf8')); } catch (_) { return null; }
@@ -1577,6 +1584,18 @@ test('headless dispatch runs a one-shot execFile and never types into tmux', () 
     const literalSends = relay.__tmuxSends().filter(c => / -l /.test(c));
     assert.deepStrictEqual(literalSends, [], `headless mode must not send-keys into tmux: ${literalSends}`);
   } finally { teardown(relay); }
+});
+
+test('headless dispatch closes child stdin and tolerates absent or already-closed stdin', () => {
+  for (const headlessStdin of ['present', 'absent', 'throws']) {
+    const relay = loadRelay({ backend: 'claude', mode: 'headless', headlessStdin });
+    try {
+      assert.doesNotThrow(() => assignHeadlessTask(relay), `stdin=${headlessStdin} must not abort dispatch`);
+      if (headlessStdin === 'present') {
+        assert.deepStrictEqual(relay.__headlessStdinEnds, [true], 'headless child stdin must be explicitly ended');
+      }
+    } finally { teardown(relay); }
+  }
 });
 
 test('a successful headless run reports task_complete then ready, and status=done', () => {
