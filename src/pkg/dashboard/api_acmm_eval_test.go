@@ -620,6 +620,10 @@ func TestHandleACMMCreateIssue_BodyFormattingAndLabels(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{"name": "acmm"})
 	})
 	mux.HandleFunc("/repos/myorg/repo1/issues", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			_ = json.NewEncoder(w).Encode([]interface{}{})
+			return
+		}
 		_ = json.NewDecoder(r.Body).Decode(&captured)
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -669,6 +673,7 @@ func TestHandleACMMCreateIssue_BodyFormattingAndLabels(t *testing.T) {
 		"**Category:** prerequisite",
 		"**Criterion ID:** `" + criterion.ID + "`",
 		"Opened by Hive ACMM Evaluation",
+		"— hive:",
 	} {
 		if !strings.Contains(issueBody, want) {
 			t.Fatalf("issue body missing %q; got:\n%s", want, issueBody)
@@ -700,6 +705,10 @@ func TestHandleACMMCreateIssue_LabelCreateFailsButNotAlreadyExists_NoLabelsAssig
 	})
 	var captured map[string]interface{}
 	mux.HandleFunc("/repos/myorg/repo1/issues", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			_ = json.NewEncoder(w).Encode([]interface{}{})
+			return
+		}
 		_ = json.NewDecoder(r.Body).Decode(&captured)
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -732,6 +741,10 @@ func TestHandleACMMCreateIssue_LabelAlreadyExists_LabelsStillAssigned(t *testing
 	})
 	var captured map[string]interface{}
 	mux.HandleFunc("/repos/myorg/repo1/issues", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			_ = json.NewEncoder(w).Encode([]interface{}{})
+			return
+		}
 		_ = json.NewDecoder(r.Body).Decode(&captured)
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -775,6 +788,10 @@ func TestHandleACMMCreateIssue_GHIssueCreateError(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{"name": "acmm"})
 	})
 	mux.HandleFunc("/repos/myorg/repo1/issues", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			_ = json.NewEncoder(w).Encode([]interface{}{})
+			return
+		}
 		http.Error(w, `{"message":"issue creation failed"}`, http.StatusInternalServerError)
 	})
 	ts := httptest.NewServer(mux)
@@ -876,6 +893,10 @@ func acmmEvalGitHubMux(t *testing.T) *httptest.Server {
 
 	mux.HandleFunc("/repos/myorg/repo1/issues", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodGet {
+			_ = json.NewEncoder(w).Encode([]interface{}{})
+			return
+		}
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"number":   42,
 			"html_url": "https://github.com/myorg/repo1/issues/42",
