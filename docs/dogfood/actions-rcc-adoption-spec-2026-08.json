@@ -1,0 +1,80 @@
+{
+  "version": 1,
+  "project": "actions-rcc",
+  "repositories": [
+    "joshyorko/actions",
+    "joshyorko/rcc"
+  ],
+  "roots": [
+    "joshyorko/actions#101",
+    "joshyorko/actions#82",
+    "joshyorko/rcc#118"
+  ],
+  "edges": [
+    {
+      "from": "joshyorko/actions#134",
+      "depends_on": "joshyorko/rcc#120",
+      "state": "promoted",
+      "classification": "explicit-roadmap-order",
+      "evidence": {
+        "source": "joshyorko/actions#101",
+        "excerpt": "#134 — integrate RCC Environment Artifacts and execution as the first local Runtime Adapter. Start after RCC #120 handoff and relevant #128 conflicts settle."
+      }
+    },
+    {
+      "from": "joshyorko/actions#143",
+      "depends_on": "joshyorko/actions#134",
+      "state": "promoted",
+      "classification": "explicit-roadmap-order",
+      "evidence": {
+        "source": "joshyorko/actions#101",
+        "excerpt": "#143 — define Capability Runtime Adapter/requirements/preflight from the working #134 path. Do not build a broad plugin framework before #134."
+      }
+    },
+    {
+      "from": "joshyorko/actions#135",
+      "depends_on": "joshyorko/actions#143",
+      "state": "promoted",
+      "classification": "numbered-roadmap-sequence",
+      "evidence": {
+        "source": "joshyorko/actions#101",
+        "excerpt": "Sequence: 2. #143 names generic adapter plan sufficiently for compiler. 3. #135 compiles immutable source/capabilities/runtime plans."
+      }
+    },
+    {
+      "from": "joshyorko/actions#148",
+      "depends_on": "joshyorko/actions#135",
+      "state": "promoted",
+      "classification": "numbered-roadmap-sequence",
+      "evidence": {
+        "source": "joshyorko/actions#101",
+        "excerpt": "Sequence: 3. #135 compiles immutable source/capabilities/runtime plans. 4. #148 routes shipping Robot import through safe snapshot/compiler."
+      }
+    },
+    {
+      "from": "joshyorko/actions#136",
+      "depends_on": "joshyorko/actions#148",
+      "state": "promoted",
+      "classification": "numbered-roadmap-sequence",
+      "evidence": {
+        "source": "joshyorko/actions#101",
+        "excerpt": "Sequence: 4. #148 routes shipping Robot import through safe snapshot/compiler. 5. #136 publishes/resolves immutable source."
+      }
+    },
+    {
+      "from": "joshyorko/rcc#121",
+      "depends_on": "joshyorko/rcc#120",
+      "state": "proposed",
+      "classification": "ambiguous-follow-up-lane-not-promoted",
+      "evidence": {
+        "source": "joshyorko/actions#101",
+        "excerpt": "RCC follow-up lanes remain independently tracked: #121 — platform/ABI matrix. These are not all blockers to the first local Actions consumer proof."
+      }
+    }
+  ],
+  "provenance": {
+    "planner": "architect-existing-backlog-adoption",
+    "run_id": "actions-rcc-dogfood-2026-08-22",
+    "generated_at": "2026-08-22T00:00:00Z"
+  }
+}

@@ -53,6 +53,7 @@ import (
 	"github.com/kubestellar/hive/pkg/beads"
 	"github.com/kubestellar/hive/pkg/classify"
 	"github.com/kubestellar/hive/pkg/config"
+	"github.com/kubestellar/hive/pkg/convergence/outcome"
 	"github.com/kubestellar/hive/pkg/dashboard"
 	"github.com/kubestellar/hive/pkg/defsrc"
 	"github.com/kubestellar/hive/pkg/discord"
@@ -2288,6 +2289,12 @@ func main() {
 	inceptionEngine := knowledge.NewInceptionEngine("/data", knowledgeAPI, logger)
 	sched.SetInception(inceptionEngine)
 
+	planningOutcomes, err := outcome.Open("/data/outcomes.json", outcome.Options{})
+	if err != nil {
+		logger.Error("planning outcome authority is corrupt or unreadable; refusing startup", "error", err)
+		return
+	}
+
 	// Brainstorm is on-demand only. Only restart with bootstrap during
 	// capture phase — structure/scaffold phases don't need a fresh kick
 	// and restarting would revert the phase back to capture.
@@ -2351,6 +2358,7 @@ func main() {
 		FleetStats:            fleetStatsCollector,
 		BeadSynthesizer:       beadSynth,
 		BeadStores:            beadStores,
+		PlanningOutcomes:      planningOutcomes,
 		BeadStoreLoadFailures: beadStoreLoadFailures,
 		Logger:                logger,
 		Ctx:                   ctx,

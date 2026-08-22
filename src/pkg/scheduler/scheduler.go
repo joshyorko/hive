@@ -538,7 +538,7 @@ func (s *Scheduler) buildReposSection() string {
 	// hive materialises a per-agent worktree from this list — so the kick has
 	// to say so, in the same section that produces the impression. Getting a
 	// checkout is an ordinary thing an agent does for itself, not a fault.
-	b.WriteString(fmt.Sprintf("ℹ️ This list is an AUTHORIZATION SCOPE, not a checkout: it does not put any repo on disk, and nothing provisions a per-agent git worktree from it. If you need files rather than the GitHub API and have no checkout, clone one yourself: git clone %s/<org>/<repo> /tmp/<repo>. An absent checkout is a normal state to handle, NOT an infrastructure fault — do not file a finding about a missing worktree or unprovisioned repo workspace.\n", strings.TrimRight(host, "/")))
+	b.WriteString(fmt.Sprintf("ℹ️ This list is an AUTHORIZATION SCOPE, not a checkout: it does not put any repo on disk, and nothing provisions a per-agent git worktree from it. First use a provisioned persistent checkout at $HOME/<repo> when it exists. Otherwise clone one yourself there: git clone %s/<org>/<repo> $HOME/<repo>. An absent checkout is a normal state to handle, NOT an infrastructure fault — do not file a finding about a missing worktree or unprovisioned repo workspace.\n", strings.TrimRight(host, "/")))
 	// Multi-repo projects: the agent workdir is never a checkout of anything
 	// but the PRIMARY repo, and the shipped templates' examples say --repo
 	// "$HIVE_REPO" (primary). Without an explicit rotation instruction agents lock onto
@@ -553,7 +553,7 @@ func (s *Scheduler) buildReposSection() string {
 		}
 		b.WriteString(fmt.Sprintf(`🔁 MULTI-REPO COVERAGE — REQUIRED: this project has %d authorized repos; ALL of them are in scope, not just the primary (%s).
 Your workdir is, at most, a checkout of the primary repo — never of the others. Each session, pick the authorized repo you have LEAST RECENTLY covered (check your beads and the [<your-role>] issues you previously filed in each repo) and work THAT repo this session:
-  - If it is not your workdir repo, clone it first: git clone %s/<org>/<repo> /tmp/<repo> && cd /tmp/<repo>
+  - Use the persistent checkout at $HOME/<repo> when it exists; otherwise clone it there: git clone %s/<org>/<repo> $HOME/<repo>. Then cd into it before source work.
   - Pass the chosen repo EXPLICITLY to every gh command: --repo "<org>/<repo>" (do not rely on $HIVE_REPO, which always names the primary repo).
   - $HIVE_REPOS lists every authorized repo, comma-separated.
 ⛔ Do NOT default to the primary repo every session — repos you never visit accumulate unseen problems.

@@ -39,7 +39,8 @@ RUN --mount=type=cache,id=hive-go-build,target=/tmp/gobuild \
     if [ "$GIT_BRANCH" = "unknown" ] || [ -z "$GIT_BRANCH" ]; then GIT_BRANCH=$(git -C /repo rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown"); fi && \
     GOCACHE=/tmp/gobuild CGO_ENABLED=0 go build -ldflags "-X main.gitHash=${GIT_HASH} -X main.gitShort=${GIT_SHORT} -X main.gitBranch=${GIT_BRANCH}" -o /hive ./cmd/hive && \
     GOCACHE=/tmp/gobuild CGO_ENABLED=0 go build -o /bd ./cmd/bd && \
-    GOCACHE=/tmp/gobuild CGO_ENABLED=0 go build -o /hive-backup ./cmd/hive-backup
+    GOCACHE=/tmp/gobuild CGO_ENABLED=0 go build -o /hive-backup ./cmd/hive-backup && \
+    GOCACHE=/tmp/gobuild CGO_ENABLED=0 go build -o /hive-adopt ./cmd/hive-adopt
 
 
 # --- tmux from source (cached until TMUX_VERSION changes) ---
@@ -331,6 +332,7 @@ ENV PATH="/usr/local/go/bin:${PATH}"
 COPY --from=builder /hive /usr/local/bin/hive
 COPY --from=builder /bd /usr/local/bin/bd
 COPY --from=builder /hive-backup /usr/local/bin/hive-backup
+COPY --from=builder /hive-adopt /usr/local/bin/hive-adopt
 
 # #3760 — defeat the BuildKit/overlayfs metacopy redirect on the cross-stage
 # COPY above. When BuildKit builds these images it can emit a layer where a
