@@ -273,6 +273,19 @@ type PlanningConfig struct {
 	// true is a no-op below L5, because the architect that decomposes the minted
 	// epics is not scheduled there.
 	PlanFromLabel *bool `yaml:"plan_from_label,omitempty" json:"plan_from_label,omitempty"`
+	// Adoption configures the bounded existing-backlog planning vertical. It is
+	// inert unless explicitly enabled and names a finite repository/root set;
+	// labels remain an operational enrollment boundary, not project authority.
+	Adoption AdoptionPlanningConfig `yaml:"adoption,omitempty" json:"adoption,omitempty"`
+}
+
+type AdoptionPlanningConfig struct {
+	Enabled      bool     `yaml:"enabled,omitempty" json:"enabled,omitempty"`
+	Project      string   `yaml:"project,omitempty" json:"project,omitempty"`
+	Repositories []string `yaml:"repositories,omitempty" json:"repositories,omitempty"`
+	Roots        []string `yaml:"roots,omitempty" json:"roots,omitempty"`
+	OutcomeRepo  string   `yaml:"outcome_repo,omitempty" json:"outcome_repo,omitempty"`
+	Outcome      string   `yaml:"outcome,omitempty" json:"outcome,omitempty"`
 }
 
 // RetroConfig gates the post-completion retro lane. It is off by

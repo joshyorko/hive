@@ -9,7 +9,9 @@ import (
 
 	"github.com/kubestellar/hive/pkg/beads"
 	"github.com/kubestellar/hive/pkg/convergence"
+	"github.com/kubestellar/hive/pkg/convergence/outcome"
 	"github.com/kubestellar/hive/pkg/planning"
+	"github.com/kubestellar/hive/pkg/planning/adoption"
 	"github.com/kubestellar/hive/pkg/worksource"
 )
 
@@ -148,8 +150,9 @@ const beadLedgerPartialReason = "BeadLedgerPartial"
 // path, and — because a sweep is discarded when the pass ends — keeps every
 // pass level-triggered against current ledger state.
 type contributorAdmissionSweep struct {
-	deps   *beadDependencyIndex
-	source worksource.DependencySnapshot
+	deps     *beadDependencyIndex
+	source   worksource.DependencySnapshot
+	planning []outcome.Record
 }
 
 // newAdmissionSweep snapshots the bead ledger for one admission pass. Callers
@@ -176,7 +179,11 @@ func (h *ContributeWSHub) newAdmissionSweepWithSource(source worksource.Dependen
 			"stores_failed", h.server.deps.BeadStoreLoadFailures,
 			"effect", "candidates with no readable record are admitted, not withheld")
 	}
-	return &contributorAdmissionSweep{deps: idx, source: source}
+	var planningRecords []outcome.Record
+	if h != nil && h.server != nil && h.server.deps != nil && h.server.deps.PlanningOutcomes != nil {
+		planningRecords = h.server.deps.PlanningOutcomes.List()
+	}
+	return &contributorAdmissionSweep{deps: idx, source: source, planning: planningRecords}
 }
 
 func (h *ContributeWSHub) sourceDependencySnapshot() worksource.DependencySnapshot {
@@ -572,7 +579,14 @@ func (h *ContributeWSHub) observeCandidateDependencies(sweep *contributorAdmissi
 		Number:     candidate.number,
 		URL:        candidate.ref.URL,
 	})
-	return composeAdmissionObservations(obs, source)
+	planned := adoption.Observe(sweep.planning, sweep.source, worksource.Ref{
+		SourceType: candidate.ref.SourceType,
+		Repo:       candidate.repoFull,
+		ExternalID: candidate.ref.ExternalID,
+		Number:     candidate.number,
+		URL:        candidate.ref.URL,
+	})
+	return composeAdmissionObservations(composeAdmissionObservations(obs, source), planned)
 }
 
 func (h *ContributeWSHub) observeBeadDependencies(sweep *contributorAdmissionSweep, candidate contributorAdmissionCandidate) convergence.Observation {
@@ -689,6 +703,12 @@ func composeAdmissionObservations(bead, source convergence.Observation) converge
 	}
 	sort.Slice(merged.Dependencies, func(i, j int) bool { return merged.Dependencies[i].ID < merged.Dependencies[j].ID })
 	return merged
+}
+
+// ComposeAdmissionObservations exposes the caller-side conjunctive merge for
+// bounded operator receipts. Runtime admission uses the same implementation.
+func ComposeAdmissionObservations(left, right convergence.Observation) convergence.Observation {
+	return composeAdmissionObservations(left, right)
 }
 
 func dependencyStatusSeverity(status convergence.ConditionStatus) int {

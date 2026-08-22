@@ -12,6 +12,7 @@ import (
 	"github.com/kubestellar/hive/pkg/agent"
 	"github.com/kubestellar/hive/pkg/beads"
 	"github.com/kubestellar/hive/pkg/config"
+	"github.com/kubestellar/hive/pkg/convergence/outcome"
 	ghpkg "github.com/kubestellar/hive/pkg/github"
 	"github.com/kubestellar/hive/pkg/governor"
 	"github.com/kubestellar/hive/pkg/knowledge"
@@ -52,6 +53,9 @@ type Dependencies struct {
 	FleetStats      *FleetStatsCollector
 	BeadSynthesizer *knowledge.BeadSynthesizer
 	BeadStores      map[string]*beads.Store
+	// PlanningOutcomes is the durable accepted-generation authority used by
+	// existing-backlog adoption. Nil keeps the feature inert.
+	PlanningOutcomes *outcome.Ledger
 	// BeadStoreLoadFailures counts configured bead stores that failed to open at
 	// startup and were therefore LEFT OUT of BeadStores entirely. The dependency
 	// admission gate (contribute_admission_deps.go) needs this because it cannot
