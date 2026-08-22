@@ -6,6 +6,25 @@ change. Security-sensitive details stay in the local private packet.
 
 ## Private security findings
 
+### Operator Compose inspection expanded a dashboard credential
+
+- **Observed behavior:** `docker compose config` expanded an environment-backed
+  dashboard credential into command output during source-build verification.
+- **Expected behavior:** Operational inspection must use secret-safe selectors
+  and must not render credential-bearing environment blocks.
+- **Minimal reproduction:** Run fully expanded Compose configuration output on
+  a deployment whose service environment references a dashboard token.
+- **Affected source/functions:** Local operator verification procedure; this is
+  not yet established as a Hive source defect.
+- **Impact:** Credential exposure in local tool/transcript output.
+- **Reproduced more than once:** No.
+- **Tests/evidence:** The exposed token was rotated immediately; replacement
+  length was verified without printing it.
+- **Likely severity:** Medium in this local environment.
+- **Duplicate search:** Not searched upstream because this is currently an
+  operator-procedure finding, not a confirmed generic Hive defect.
+- **Disposition:** PRIVATE SECURITY REVIEW REQUIRED; retain in the local packet.
+
 ### Published gateway could promote anonymous API traffic to owner
 
 - **Observed behavior:** An anonymous owner-only GET through the published
@@ -102,4 +121,3 @@ change. Security-sensitive details stay in the local private packet.
 - **Filed publicly:** None.
 - **Prepared but not filed:** None.
 - **Duplicates with upstream owners:** None identified so far.
-

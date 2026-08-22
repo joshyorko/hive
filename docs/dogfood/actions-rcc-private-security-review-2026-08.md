@@ -9,8 +9,11 @@ or reproductions before coordinated triage.
    across an internal trust boundary. The local fix is commit `e683f934`.
 2. Codex kick delivery used Ctrl-C as an input-clear operation, exited the CLI,
    and allowed the following Markdown prompt to be interpreted by Bash. The
-   local uncommitted fix removes Ctrl-C from Codex delivery and adds unit and
+   local fix in `983c4323` removes Ctrl-C from Codex delivery and adds unit and
    real-tmux regression coverage.
+3. A local `docker compose config` inspection expanded the dashboard token into
+   tool output. The token was rotated immediately without printing its
+   replacement. This is an operator-procedure finding, not yet a Hive defect.
 
 ## Preserved evidence
 
