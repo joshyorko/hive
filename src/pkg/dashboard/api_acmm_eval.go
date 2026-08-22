@@ -18,6 +18,7 @@ import (
 const acmmEvalTTL = time.Hour
 const acmmLevelThreshold = 0.70
 const acmmEvalTimeout = 30 * time.Second
+const acmmReconcileTimeout = 2 * time.Minute
 const acmmPerRepoTimeout = 20 * time.Second
 const acmmIssueLabelName = "acmm"
 const acmmIssueLabelColor = "0075ca"
@@ -140,13 +141,7 @@ func (s *Server) handleACMMCreateIssue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var criterion *ACMMCriterion
-	for i := range universalCriteria {
-		if universalCriteria[i].ID == req.CriterionID {
-			criterion = &universalCriteria[i]
-			break
-		}
-	}
+	criterion := acmmCriterionByID(req.CriterionID)
 	if criterion == nil {
 		http.Error(w, "unknown criterion", http.StatusBadRequest)
 		return
@@ -159,6 +154,14 @@ func (s *Server) handleACMMCreateIssue(w http.ResponseWriter, r *http.Request) {
 	owner := s.deps.Config.Project.Org
 	if owner == "" {
 		http.Error(w, "org not configured", http.StatusInternalServerError)
+		return
+	}
+	allowed := req.Repo == s.deps.Config.Project.PrimaryRepo
+	for _, repo := range s.deps.Config.Project.Repos {
+		allowed = allowed || repo == req.Repo
+	}
+	if !allowed {
+		http.Error(w, "repository is outside configured project boundary", http.StatusBadRequest)
 		return
 	}
 
@@ -175,6 +178,46 @@ func (s *Server) handleACMMCreateIssue(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), acmmEvalTimeout)
 	defer cancel()
 
+	// Create is a mutating decision: never trust the one-hour display cache.
+	// Serialize lookup+create with reconciliation so repeated operator clicks
+	// cannot race into duplicate active remediation issues.
+	s.acmmMutationMu.Lock()
+	defer s.acmmMutationMu.Unlock()
+	fresh, _, err := s.evaluateACMMRepoFresh(ctx, owner, req.Repo)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to obtain fresh ACMM evidence: %v", err), http.StatusBadGateway)
+		return
+	}
+	for _, result := range fresh.CriteriaResults {
+		if result.ID == criterion.ID && result.Passed {
+			http.Error(w, "criterion is already satisfied by current repository evidence", http.StatusConflict)
+			return
+		}
+	}
+
+	existing, err := s.listACMMIssues(ctx, owner, req.Repo)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to inspect existing ACMM issues: %v", err), http.StatusBadGateway)
+		return
+	}
+	fullRepo := owner + "/" + req.Repo
+	for _, issue := range existing {
+		markedRepo, id, ok := parseACMMIssueIdentity(issue.GetBody())
+		if !ok || id != criterion.ID || (markedRepo != "" && !strings.EqualFold(markedRepo, fullRepo)) {
+			continue
+		}
+		if strings.EqualFold(issue.GetState(), "open") {
+			jsonResponse(w, map[string]interface{}{
+				"issue_number": issue.GetNumber(), "issue_url": issue.GetHTMLURL(), "already_existed": true,
+			})
+			return
+		}
+		if strings.EqualFold(issue.GetStateReason(), "not_planned") {
+			http.Error(w, "criterion was explicitly closed as not planned; operator disposition suppresses automatic recreation", http.StatusConflict)
+			return
+		}
+	}
+
 	_, _, labelErr := ghClient.Issues.CreateLabel(ctx, owner, req.Repo, &gh.Label{
 		Name:        gh.Ptr(acmmIssueLabelName),
 		Description: gh.Ptr(acmmIssueLabelDesc),
@@ -182,42 +225,8 @@ func (s *Server) handleACMMCreateIssue(w http.ResponseWriter, r *http.Request) {
 	})
 	labelExists := labelErr == nil || strings.Contains(labelErr.Error(), "already_exists")
 
-	levelName := acmmLevelNames[criterion.Level]
-	if levelName == "" {
-		levelName = "Unknown"
-	}
-
 	title := fmt.Sprintf("[ACMM L%d] Add %s", criterion.Level, criterion.Name)
-
-	var patternsStr strings.Builder
-	for _, p := range criterion.Patterns {
-		patternsStr.WriteString(fmt.Sprintf("- `%s`\n", p))
-	}
-
-	body := fmt.Sprintf("## ACMM Gap: %s\n\n"+
-		"**Level:** L%d %s\n"+
-		"**Category:** %s\n"+
-		"**Criterion ID:** `%s`\n\n"+
-		"### What's needed\n\n"+
-		"This repository is missing one of the following files or directories:\n\n"+
-		"%s\n"+
-		"Adding any one of these will satisfy this criterion and help the repository "+
-		"advance to ACMM Level %d (%s).\n\n"+
-		"### Why it matters\n\n"+
-		"%s\n\n"+
-		"### How to fix\n\n"+
-		"Create one of the files listed above. The ACMM evaluation checks for file existence — "+
-		"the content can follow your project's conventions.\n\n"+
-		"---\n"+
-		"*Opened by Hive ACMM Evaluation*",
-		criterion.Name,
-		criterion.Level, levelName,
-		criterion.Category,
-		criterion.ID,
-		patternsStr.String(),
-		criterion.Level, levelName,
-		acmmCriterionWhyItMatters(criterion.Level, criterion.Category),
-	)
+	body := buildACMMIssueBody(fullRepo, *criterion)
 
 	// Invocation-attribution trail: this issue is created by the hive on an
 	// operator's dashboard action — stamp the (config-gated) visible trailer
