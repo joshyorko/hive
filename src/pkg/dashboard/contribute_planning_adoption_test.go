@@ -66,10 +66,13 @@ func TestPlanningAdoption_ComposesWithQueueSelectionAndKickProjection(t *testing
 	if got := queueNumbers(hub.ReadyQueue(readyQueueDefaultLimit)); len(got) != 1 || got[0] != 135 {
 		t.Fatalf("ReadyQueue = %v, want independent #135 only", got)
 	}
-	actionable := []ghpkg.Issue{{Repo: "joshyorko/actions", Number: 134, State: "open", Labels: []string{"hive-managed"}}}
+	// Production last-actionable.json stores project-local repository names;
+	// the kick adapter must qualify them to the same canonical identity used by
+	// planning and contributor admission.
+	actionable := []ghpkg.Issue{{Repo: "actions", Number: 134, State: "open", Labels: []string{"hive-managed"}}}
 	sourceIssues := []ghpkg.Issue{
 		actionable[0],
-		{Repo: "joshyorko/rcc", Number: 120, State: "open"},
+		{Repo: "rcc", Number: 120, State: "open"},
 	}
 	admitted, withheld, _ := server.ConvergenceKickProjectionDetailed(actionable, sourceIssues)
 	if len(admitted) != 0 || len(withheld) != 1 || withheld[0].Issue.Number != 134 {

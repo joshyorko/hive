@@ -79,7 +79,7 @@ func (s *Server) ConvergenceKickProjectionDetailed(issues []ghpkg.Issue, source 
 	sweep := hub.newAdmissionSweepWithSource(kickSourceSnapshot(hub, issues, source))
 	coverage = hub.admissionCoverageFromSweep(sweep)
 	for _, issue := range issues {
-		candidate := kickAdmissionCandidate(issue)
+		candidate := kickAdmissionCandidate(hub, issue)
 		if !candidate.isGitHubBacked() {
 			admitted = append(admitted, issue)
 			continue
@@ -100,13 +100,14 @@ func kickSourceSnapshot(hub *ContributeWSHub, issues []ghpkg.Issue, source [][]g
 		EnrollmentLabels: hub.sourceEnrollmentLabels(),
 	}
 	appendIssue := func(issue ghpkg.Issue) {
+		repo := hub.canonicalRepoKey(issue.Repo)
 		state := issue.State
 		if state == "" {
 			state = "open"
 		}
 		snapshot.Issues = append(snapshot.Issues, worksource.Issue{
 			SourceType: issue.SourceType,
-			Repo:       issue.Repo,
+			Repo:       repo,
 			ExternalID: issue.ExternalID,
 			Number:     issue.Number,
 			Title:      issue.Title,
@@ -132,22 +133,24 @@ func kickSourceSnapshot(hub *ContributeWSHub, issues []ghpkg.Issue, source [][]g
 }
 
 // kickAdmissionCandidate normalises one enumerated issue into the shared
-// admission candidate shape. Repo carries whatever spelling the enumerator
-// recorded; the bare tail is supplied as repoName so bead identity lookup tries
-// both spellings, mirroring candidateIdentityKeys' contract for the contributor
-// path (the #2648 key-mismatch class of bug, avoided the same way).
-func kickAdmissionCandidate(issue ghpkg.Issue) contributorAdmissionCandidate {
-	repoName := issue.Repo
-	if i := strings.LastIndex(issue.Repo, "/"); i >= 0 {
-		repoName = issue.Repo[i+1:]
+// admission candidate shape. The enumerator may persist a project-local short
+// repo name, so resolve it through the hub's configured repository authority
+// before planning/adoption observation. The bare tail is still supplied as
+// repoName so bead identity lookup tries both spellings, mirroring
+// candidateIdentityKeys' contributor-path contract.
+func kickAdmissionCandidate(hub *ContributeWSHub, issue ghpkg.Issue) contributorAdmissionCandidate {
+	repoFull := hub.canonicalRepoKey(issue.Repo)
+	repoName := repoFull
+	if i := strings.LastIndex(repoFull, "/"); i >= 0 {
+		repoName = repoFull[i+1:]
 	}
 	return contributorAdmissionCandidate{
-		repoFull: issue.Repo,
+		repoFull: repoFull,
 		repoName: repoName,
 		number:   issue.Number,
 		ref: worksource.Ref{
 			SourceType: issue.SourceType,
-			Repo:       issue.Repo,
+			Repo:       repoFull,
 			ExternalID: issue.ExternalID,
 			Number:     issue.Number,
 			URL:        issue.URL,
