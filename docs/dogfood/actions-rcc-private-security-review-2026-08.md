@@ -14,6 +14,9 @@ or reproductions before coordinated triage.
 3. A local `docker compose config` inspection expanded the dashboard token into
    tool output. The token was rotated immediately without printing its
    replacement. This is an operator-procedure finding, not yet a Hive defect.
+4. A session-store schema probe printed the persisted device-flow session
+   handle. The handle was atomically rotated, the validated session record was
+   preserved, and Hive was restarted so the exposed handle is no longer valid.
 
 ## Preserved evidence
 

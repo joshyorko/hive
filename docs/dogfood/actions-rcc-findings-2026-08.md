@@ -25,6 +25,26 @@ change. Security-sensitive details stay in the local private packet.
   operator-procedure finding, not a confirmed generic Hive defect.
 - **Disposition:** PRIVATE SECURITY REVIEW REQUIRED; retain in the local packet.
 
+### Session-store schema inspection exposed an opaque session handle
+
+- **Observed behavior:** A diagnostic `jq keys` probe printed the sole persisted
+  device-flow session identifier into tool output.
+- **Expected behavior:** Session-store inspection must report counts and schema
+  only, never bearer-like map keys.
+- **Minimal reproduction:** Run a key-listing query against the persisted
+  dashboard session object.
+- **Affected source/functions:** Local operator verification procedure; this is
+  not established as a Hive source defect.
+- **Impact:** Exposure of a reusable authenticated-session handle.
+- **Reproduced more than once:** No.
+- **Tests/evidence:** The exposed handle was atomically replaced with a fresh
+  opaque identifier, the validated session record was preserved, and Hive was
+  restarted to reload the rotated store.
+- **Likely severity:** Medium in this local environment.
+- **Duplicate search:** Not searched upstream because this is an operator
+  diagnostic failure, not a confirmed generic Hive defect.
+- **Disposition:** PRIVATE SECURITY REVIEW REQUIRED; retain in the local packet.
+
 ### Published gateway could promote anonymous API traffic to owner
 
 - **Observed behavior:** An anonymous owner-only GET through the published
