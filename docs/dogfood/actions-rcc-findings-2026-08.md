@@ -492,3 +492,24 @@ change. Security-sensitive details stay in the local private packet.
 - **Likely severity:** Medium contributor reliability.
 - **Duplicate search:** Pending.
 - **Disposition:** DOGFOOD / DESIGN FINDING needing more evidence; non-blocking.
+
+### PR-request watcher retries an undeliverable guide branch indefinitely
+
+- **Observed behavior:** The guide committed a docs change in its local
+  worktree, but the App-side PR watcher retried PR creation about every ten
+  seconds. GitHub alternated between invalid-head and no-commits-between errors.
+- **Expected behavior:** A failed delivery should use bounded backoff and stop
+  retrying a branch that is absent remotely or has no diff against the base.
+- **Minimal reproduction:** Let guide request a PR for
+  `guide/docs-update-stale-docs` without an authoritative remote branch diff and
+  observe repeated HTTP 422 responses in Hive logs.
+- **Affected source/functions:** GitHub PR-request watcher retry loop and guide
+  delivery handoff.
+- **Impact:** Repeated GitHub API consumption and noisy logs; no PR or duplicate
+  mutation was created, and contributor production remained operational.
+- **Reproduced more than once:** Yes, continuously during the observation.
+- **Tests/evidence:** Bounded Hive logs captured both 422 response variants and
+  the roughly ten-second retry cadence.
+- **Likely severity:** Medium operational reliability.
+- **Duplicate search:** Pending; do not interrupt continuous factory operation.
+- **Disposition:** DOGFOOD / DESIGN FINDING needing more evidence; non-blocking.
