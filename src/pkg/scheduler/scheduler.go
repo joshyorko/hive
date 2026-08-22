@@ -340,7 +340,7 @@ func (s *Scheduler) formatIssueListWithPolicy(issues []github.Issue) (string, bo
 		labels, labelsFailClosed := s.enforceLabelsWithPolicy(issue.Labels)
 		failClosed = failClosed || labelsFailClosed
 		b.WriteString(fmt.Sprintf("  %dm %s [%s] %s\n",
-			issue.AgeMinutes, issueDisplayRef(issue),
+			issue.AgeMinutes, s.authoritativeIssueDisplayRef(issue),
 			strings.Join(labels, ","), title))
 		shown++
 	}
@@ -494,6 +494,18 @@ func issueDisplayRef(issue github.Issue) string {
 		return key
 	}
 	return issue.Repo
+}
+
+// authoritativeIssueDisplayRef qualifies repository-scoped GitHub identities
+// with the configured project owner before they enter an agent prompt. The
+// GitHub enumerator stores configured repo names (which may be short), but an
+// agent working a multi-repo project must never infer the owner or substitute
+// the primary repository for a same-number issue in another repository.
+func (s *Scheduler) authoritativeIssueDisplayRef(issue github.Issue) string {
+	if issue.Number > 0 && issue.Repo != "" && !strings.Contains(issue.Repo, "/") && s.cfg.Project.Org != "" {
+		issue.Repo = s.cfg.Project.Org + "/" + issue.Repo
+	}
+	return issueDisplayRef(issue)
 }
 
 // BuildAgentMessageFromLastActionable builds a kick message for the named
@@ -682,7 +694,7 @@ func (s *Scheduler) buildScannerMessage(issues []github.Issue, actionable *githu
 			title = string(runes[:maxTitleRunes])
 		}
 		b.WriteString(fmt.Sprintf("  %dm %s [%s/%s] [%s] %s%s\n",
-			issue.AgeMinutes, issueDisplayRef(issue),
+			issue.AgeMinutes, s.authoritativeIssueDisplayRef(issue),
 			tier, issue.ModelRec,
 			strings.Join(issue.Labels, ","),
 			title, tracker))
@@ -930,7 +942,7 @@ func (s *Scheduler) buildGenericMessage(agentName string, issues []github.Issue,
 	if len(agentIssues) > 0 {
 		b.WriteString(fmt.Sprintf("Work items (%d):\n", len(agentIssues)))
 		for _, issue := range agentIssues {
-			b.WriteString(fmt.Sprintf("  %s %s\n", issueDisplayRef(issue), issue.Title))
+			b.WriteString(fmt.Sprintf("  %s %s\n", s.authoritativeIssueDisplayRef(issue), issue.Title))
 		}
 	}
 
@@ -966,7 +978,7 @@ func (s *Scheduler) buildQualityMessage(issues []github.Issue, actionable *githu
 				title = string(runes[:maxTitleRunes])
 			}
 			b.WriteString(fmt.Sprintf("  %s [%s] %s\n",
-				issueDisplayRef(issue),
+				s.authoritativeIssueDisplayRef(issue),
 				strings.Join(issue.Labels, ","),
 				title))
 			shown++
@@ -1024,7 +1036,7 @@ func (s *Scheduler) buildArchitectMessage(issues []github.Issue, actionable *git
 				title = string(runes[:maxTitleRunes])
 			}
 			b.WriteString(fmt.Sprintf("  %s [%s] %s\n",
-				issueDisplayRef(issue),
+				s.authoritativeIssueDisplayRef(issue),
 				strings.Join(issue.Labels, ","),
 				title))
 			shown++

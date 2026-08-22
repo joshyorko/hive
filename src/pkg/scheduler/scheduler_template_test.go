@@ -4,11 +4,48 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/kubestellar/hive/pkg/config"
 	ghpkg "github.com/kubestellar/hive/pkg/github"
 )
+
+func TestScannerKickPreservesAuthoritativeMultiRepoIssueIdentity(t *testing.T) {
+	level := 5
+	cfg := &config.Config{
+		ACMMLevel: &level,
+		Project: config.ProjectConfig{
+			Org: "joshyorko", PrimaryRepo: "actions",
+			Repos: []string{"actions", "rcc"},
+		},
+		Agents: map[string]config.AgentConfig{
+			"scanner": {
+				Role: "scanner", Mode: "ISSUES_AND_PRS",
+				KickTemplate: "scanner-holdgated.md",
+			},
+		},
+	}
+	s := New(cfg, slog.Default())
+	issues := []ghpkg.Issue{
+		{Repo: "actions", Number: 122, Title: "Actions work"},
+		{Repo: "rcc", Number: 122, Title: "RCC work"},
+	}
+	msg := s.BuildAgentMessage("scanner", issues, &ghpkg.ActionableResult{
+		Issues: ghpkg.IssueResult{Count: len(issues), Items: issues},
+	})
+
+	for _, ref := range []string{"joshyorko/actions#122", "joshyorko/rcc#122"} {
+		if !strings.Contains(msg, ref) {
+			t.Errorf("scanner kick lacks authoritative ref %q:\n%s", ref, msg)
+		}
+	}
+	for _, ambiguous := range []string{"  actions#122 ", "  rcc#122 "} {
+		if strings.Contains(msg, ambiguous) {
+			t.Errorf("scanner kick contains ambiguous ref %q", ambiguous)
+		}
+	}
+}
 
 func TestBuildAgentMessageWithKickTemplate(t *testing.T) {
 	dir := t.TempDir()
