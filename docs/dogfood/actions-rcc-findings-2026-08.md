@@ -406,3 +406,89 @@ change. Security-sensitive details stay in the local private packet.
   Codex agents (pending concise issue body after stable first cycle).
 - **Duplicates with upstream owners:** Related but non-owning closed issues
   #4041, #4042, and #4072.
+
+### Headless contributor left Codex stdin open
+
+- **Observed behavior:** The normal contributor scheduler assigned work and
+  delivered a task-scoped App credential, but headless Codex never contacted
+  Headroom or created a checkout because `execFile` kept its stdin pipe open.
+- **Expected behavior:** A one-shot CLI receives the prompt as an argv element
+  and immediate EOF on stdin so unattended execution begins deterministically.
+- **Minimal reproduction:** Run the Codex contributor in headless mode, accept
+  an admitted task, and observe the child sleeping on a futex with no Headroom
+  socket or workspace checkout until its stdin is closed.
+- **Affected source/functions:** `runHeadlessTask` in
+  `bin/contributor-relay.sh` and the headless `execFile` test harness.
+- **Impact:** Complete production-delivery outage for headless Codex relays.
+- **Reproduced more than once:** Yes, on two naturally selected Actions tasks.
+- **Tests/evidence:** Regression covers present, absent, and already-closed
+  stdin; the full contributor relay suite passes 162/162. Fixed locally by
+  commit `1550aba3`.
+- **Likely severity:** High operational reliability.
+- **Duplicate search:** Pending; do not block continuous factory operation.
+- **Disposition:** PUBLIC / NORMAL BUG candidate after stable production proof.
+
+### Published gateway omitted WebSocket upgrade headers under `/api`
+
+- **Observed behavior:** A contributor connecting through published port 3001
+  reached `/api/contribute/ws` but nginx returned HTTP 400 before the Hive
+  WebSocket handler ran.
+- **Expected behavior:** The documented published contributor URL upgrades to
+  WebSocket while retaining the existing authentication boundary.
+- **Minimal reproduction:** Connect a relay to
+  `ws://127.0.0.1:3001/contribute`; the relay normalizes it to
+  `/api/contribute/ws` and receives `Unexpected server response: 400`.
+- **Affected source/functions:** The local `nginx.conf` nested `/api/` location;
+  its sibling `/` location already forwards Upgrade and Connection.
+- **Impact:** External contributor relays cannot use the published gateway.
+  The local App contributor remains operational on the isolated Compose
+  network with its registration credential.
+- **Reproduced more than once:** Yes, across automatic reconnect attempts.
+- **Tests/evidence:** Gateway 400 logs and successful direct Compose-network
+  WebSocket authentication were captured.
+- **Likely severity:** Medium deployment integration.
+- **Duplicate search:** Pending; this may be local-deployment configuration.
+- **Disposition:** DOGFOOD / DESIGN FINDING; non-blocking for current factory.
+
+### Headless completion missed a real App-authored PR URL
+
+- **Observed behavior:** Codex delivered Actions PR #172 and printed its URL in
+  the final Markdown response, but the relay sent completion without `pr_url`;
+  Hive consequently recorded `pr_verified=false` and an idle verdict.
+- **Expected behavior:** A real reported PR URL is extracted, verified against
+  the assigned repository and App identity, hold-checked, and retained in the
+  durable contributor receipt.
+- **Minimal reproduction:** Complete a headless Codex task whose final response
+  contains `[PR](https://github.com/owner/repo/pull/N)` and compare the Codex
+  rollout with the relay completion event.
+- **Affected source/functions:** Headless stdout/stderr tail collection and
+  `detectPRURL` in `bin/contributor-relay.sh`; Go verification correctly failed
+  closed when no URL arrived.
+- **Impact:** Delivery still exists durably on GitHub with `hold`, but Hive does
+  not award PR completion credit or retain its verified delivery receipt.
+- **Reproduced more than once:** No.
+- **Tests/evidence:** Codex rollout, App-authored PR #172, signed commit
+  `f3c120fc`, `hold`, and Hive `pr_verified=false` completion log captured.
+- **Likely severity:** Medium operational accounting/durability.
+- **Duplicate search:** Pending; do not interrupt continuous production.
+- **Disposition:** PUBLIC / NORMAL BUG candidate; non-blocking for execution.
+
+### Headless Codex output exceeded the relay `execFile` buffer
+
+- **Observed behavior:** Actions #91 ran after stdin closure but exited with
+  `ERR_CHILD_PROCESS_STDIO_MAXBUFFER`; the relay correctly released it and
+  selected the next admitted issue.
+- **Expected behavior:** Long Codex output is bounded or streamed without
+  turning an otherwise-running implementation into a transport failure.
+- **Minimal reproduction:** Run a verbose headless Codex task through the
+  default Node `execFile` output buffer.
+- **Affected source/functions:** `runHeadlessTask` in
+  `bin/contributor-relay.sh`.
+- **Impact:** Individual verbose tasks fail and cool down, but the factory
+  continues with other admitted work; no duplicate PR was created.
+- **Reproduced more than once:** No.
+- **Tests/evidence:** Relay log captured `ERR_CHILD_PROCESS_STDIO_MAXBUFFER` for
+  Actions #91 followed by a normal assignment of Actions #137.
+- **Likely severity:** Medium contributor reliability.
+- **Duplicate search:** Pending.
+- **Disposition:** DOGFOOD / DESIGN FINDING needing more evidence; non-blocking.
