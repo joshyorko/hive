@@ -102,3 +102,30 @@ func TestContinuityRevocationStopsContinuation(t *testing.T) {
 		t.Fatalf("revoked adoption still owns work: %+v", got)
 	}
 }
+
+func TestContinuitySuppressionPromotionIsOwnerGatedAndIdempotent(t *testing.T) {
+	s, ledger := continuityAPIServer(t)
+	s.deps.ObserveContinuityPR = func(_ context.Context, ref continuity.PRRef) (continuity.Observation, error) {
+		return continuity.Observation{Ref: ref, OriginalAuthor: "alice", HeadRepo: ref.Repo,
+			HeadBranch: "alice/existing", BaseBranch: "main", HeadSHA: "head-1", BaseSHA: "base-1",
+			State: continuity.StateContinue, WriteCapability: continuity.CapabilityWritable,
+			LinkedWork: []continuity.WorkRelationship{{WorkRef: "acme/widgets#9", Relationship: continuity.RelationshipReferences, Evidence: "Progresses #9", Ambiguous: true}},
+			Provenance: "github:acme/widgets/pull/17@head-1"}, nil
+	}
+	if w := continuityRequest(t, s, map[string]any{"action": "adopt", "repo": "widgets", "pr_number": 17}, true); w.Code != http.StatusOK {
+		t.Fatalf("adopt status=%d body=%s", w.Code, w.Body.String())
+	}
+	rec := ledger.List()[0]
+	body := map[string]any{"action": "promote_suppression", "repo": "widgets", "pr_number": 17, "work_ref": "acme/widgets#9", "expected_generation": rec.Generation}
+	if w := continuityRequest(t, s, body, false); w.Code != http.StatusForbidden {
+		t.Fatalf("non-owner promotion status=%d body=%s", w.Code, w.Body.String())
+	}
+	w := continuityRequest(t, s, body, true)
+	if w.Code != http.StatusOK {
+		t.Fatalf("owner promotion status=%d body=%s", w.Code, w.Body.String())
+	}
+	got := ledger.List()[0]
+	if len(got.SuppressionClaims) != 1 || got.SuppressionClaims[0].WorkRef != "acme/widgets#9" {
+		t.Fatalf("claims=%+v", got.SuppressionClaims)
+	}
+}

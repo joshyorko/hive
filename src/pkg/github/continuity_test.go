@@ -34,6 +34,10 @@ func continuityFixture(t *testing.T, fork bool) *Client {
 }
 
 func continuityFixtureWithProtection(t *testing.T, fork, protected bool) *Client {
+	return continuityFixtureWithAccess(t, fork, protected, true)
+}
+
+func continuityFixtureWithAccess(t *testing.T, fork, protected, push bool) *Client {
 	t.Helper()
 	headRepo := "acme/widgets"
 	if fork {
@@ -52,7 +56,7 @@ func continuityFixtureWithProtection(t *testing.T, fork, protected bool) *Client
 				"html_url": "https://github.com/acme/widgets/pull/17",
 			})
 		case r.URL.Path == "/repos/acme/widgets":
-			writeJSON(t, w, map[string]any{"full_name": "acme/widgets", "permissions": map[string]any{"push": true}})
+			writeJSON(t, w, map[string]any{"full_name": "acme/widgets", "permissions": map[string]any{"push": push}})
 		case r.URL.Path == "/repos/acme/widgets/branches/alice/existing":
 			writeJSON(t, w, map[string]any{"name": "alice/existing", "protected": protected})
 		case r.URL.Path == "/repos/acme/widgets/compare/base-17...head-17":
@@ -83,6 +87,23 @@ func TestObserveContinuityPRProtectedBranchDoesNotClaimWriteCapability(t *testin
 	}
 	if obs.WriteCapability != continuity.CapabilityUnknown || obs.State != continuity.StateUnknown {
 		t.Fatalf("protected branch write capability was guessed: %+v", obs)
+	}
+}
+
+func TestObserveContinuityPRAppUsesInstallationCapabilityNotRepositoryUserPermissions(t *testing.T) {
+	c := continuityFixtureWithAccess(t, false, false, false)
+	c.continuityWriteCapability = func(context.Context, string, string) (continuity.WriteCapability, error) {
+		return continuity.CapabilityWritable, nil
+	}
+	// The live failure returned every user-style repository permission false for
+	// an installation token. Reproduce that payload while the installation
+	// capability oracle proves contents:write.
+	obs, err := c.ObserveContinuityPR(context.Background(), continuity.PRRef{Repo: "acme/widgets", Number: 17})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if obs.WriteCapability != continuity.CapabilityWritable || obs.State != continuity.StateContinue {
+		t.Fatalf("installation write authority was overridden by repository user permissions: %+v", obs)
 	}
 }
 

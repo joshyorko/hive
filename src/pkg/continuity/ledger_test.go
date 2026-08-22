@@ -128,6 +128,88 @@ func TestActiveAdoptionClaimsOnlyItsOwnedSlicesAndRevocationReleasesThem(t *test
 	}
 }
 
+func TestOwnerPromotesAmbiguousLinkedWorkToPartialSuppressionWithoutClosingOwnership(t *testing.T) {
+	ledger, err := OpenLedger(filepath.Join(t.TempDir(), "continuity.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	obs := fixtureObservation("head-1")
+	obs.LinkedWork = []WorkRelationship{{WorkRef: "acme/widgets#9", Relationship: RelationshipReferences, Evidence: "Progresses #9", Ambiguous: true}}
+	rec, err := ledger.Adopt(obs, "owner", "verified-owner-dashboard", time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	promoted, err := ledger.PromoteSuppression(obs.Ref, "acme/widgets#9", rec.Generation, "owner", "verified-owner-dashboard", time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(promoted.SuppressionClaims) != 1 || promoted.SuppressionClaims[0].WorkRef != "acme/widgets#9" {
+		t.Fatalf("suppression claims=%+v", promoted.SuppressionClaims)
+	}
+	if promoted.LinkedWork[0].Relationship != RelationshipReferences || !promoted.LinkedWork[0].Ambiguous || promoted.LinkedWork[0].OwnedSlice != "" {
+		t.Fatalf("partial suppression was confused with closing acceptance: %+v", promoted.LinkedWork[0])
+	}
+	if got := ledger.LookupWork("acme/widgets#9"); len(got) != 1 {
+		t.Fatalf("promoted partial work did not suppress replacement: %+v", got)
+	}
+	if _, err := OpenLedger(filepath.Join(filepath.Dir(ledger.path), "continuity.json")); err != nil {
+		t.Fatalf("durable suppression ledger did not reload: %v", err)
+	}
+}
+
+func TestSuppressionPromotionRequiresOwnerAuthorityAndDiscoveredRelationship(t *testing.T) {
+	ledger, _ := OpenLedger(filepath.Join(t.TempDir(), "continuity.json"))
+	obs := fixtureObservation("head-1")
+	obs.LinkedWork = []WorkRelationship{{WorkRef: "acme/widgets#9", Relationship: RelationshipReferences, Ambiguous: true}}
+	rec, _ := ledger.Adopt(obs, "owner", "verified-owner-dashboard", time.Now())
+	if _, err := ledger.PromoteSuppression(obs.Ref, "acme/widgets#9", rec.Generation, "", "github-label:hive-adopt", time.Now()); !errors.Is(err, ErrUnauthorized) {
+		t.Fatalf("agent/label authority promoted suppression: %v", err)
+	}
+	if _, err := ledger.PromoteSuppression(obs.Ref, "acme/widgets#99", rec.Generation, "owner", "verified-owner-dashboard", time.Now()); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("undiscovered relationship promoted: %v", err)
+	}
+	closing := fixtureObservation("head-2")
+	closing.Ref.Number = 18
+	closing.LinkedWork = []WorkRelationship{{WorkRef: "acme/widgets#10", Relationship: RelationshipCloses, OwnedSlice: "complete issue"}}
+	closingRec, _ := ledger.Adopt(closing, "owner", "verified-owner-dashboard", time.Now())
+	if _, err := ledger.PromoteSuppression(closing.Ref, "acme/widgets#10", closingRec.Generation, "owner", "verified-owner-dashboard", time.Now()); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("closing ownership was promoted as partial suppression: %v", err)
+	}
+}
+
+func TestSuppressionPromotionRetryIsIdempotent(t *testing.T) {
+	ledger, _ := OpenLedger(filepath.Join(t.TempDir(), "continuity.json"))
+	obs := fixtureObservation("head-1")
+	obs.LinkedWork = []WorkRelationship{{WorkRef: "acme/widgets#9", Relationship: RelationshipReferences, Ambiguous: true}}
+	rec, _ := ledger.Adopt(obs, "owner", "verified-owner-dashboard", time.Now())
+	first, err := ledger.PromoteSuppression(obs.Ref, "acme/widgets#9", rec.Generation, "owner", "verified-owner-dashboard", time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	retry, err := ledger.PromoteSuppression(obs.Ref, "acme/widgets#9", rec.Generation, "owner", "verified-owner-dashboard", time.Now())
+	if err != nil {
+		t.Fatalf("idempotent retry: %v", err)
+	}
+	if retry.Generation != first.Generation || len(retry.History) != len(first.History) || len(retry.SuppressionClaims) != 1 {
+		t.Fatalf("retry mutated authority: first=%+v retry=%+v", first, retry)
+	}
+}
+
+func TestObservationCannotInjectSuppressionAuthority(t *testing.T) {
+	ledger, _ := OpenLedger(filepath.Join(t.TempDir(), "continuity.json"))
+	obs := fixtureObservation("head-1")
+	obs.LinkedWork = []WorkRelationship{{WorkRef: "acme/widgets#9", Relationship: RelationshipReferences, Ambiguous: true}}
+	obs.SuppressionClaims = []SuppressionClaim{{WorkRef: "acme/widgets#9", Principal: "agent", Provenance: "github-label:hive-adopt", Active: true}}
+
+	rec, err := ledger.Adopt(obs, "owner", "verified-owner-dashboard", time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rec.SuppressionClaims) != 0 || len(ledger.LookupWork("acme/widgets#9")) != 0 {
+		t.Fatalf("observer injected suppression authority: %+v", rec.SuppressionClaims)
+	}
+}
+
 func TestForkOrUnwritableObservationCannotBecomeContinuation(t *testing.T) {
 	ledger, _ := OpenLedger(filepath.Join(t.TempDir(), "continuity.json"))
 	obs := fixtureObservation("head-1")

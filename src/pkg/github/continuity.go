@@ -50,16 +50,28 @@ func (c *Client) ObserveContinuityPR(ctx context.Context, ref continuity.PRRef) 
 	if repoState, _, repoErr := c.client.Repositories.Get(ctx, owner, repo); repoErr == nil {
 		if obs.HeadRepo != ref.Repo {
 			obs.WriteCapability = continuity.CapabilityUnwritable
-		} else if !repoState.GetPermissions()["push"] {
-			obs.WriteCapability = continuity.CapabilityUnwritable
-		} else if branch, _, branchErr := c.client.Repositories.GetBranch(ctx, owner, repo, obs.HeadBranch, 3); branchErr != nil {
-			obs.WriteCapability = continuity.CapabilityUnknown
-		} else if branch.GetProtected() {
-			// Repository-level push permission does not prove that this App can
-			// bypass a branch ruleset. Do not discover by attempting a mutation.
-			obs.WriteCapability = continuity.CapabilityUnknown
 		} else {
-			obs.WriteCapability = continuity.CapabilityWritable
+			if c.continuityWriteCapability != nil {
+				capability, capabilityErr := c.continuityWriteCapability(ctx, owner, repo)
+				if capabilityErr != nil {
+					obs.WriteCapability = continuity.CapabilityUnknown
+				} else {
+					obs.WriteCapability = capability
+				}
+			} else if !repoState.GetPermissions()["push"] {
+				obs.WriteCapability = continuity.CapabilityUnwritable
+			} else {
+				obs.WriteCapability = continuity.CapabilityWritable
+			}
+			if obs.WriteCapability == continuity.CapabilityWritable {
+				if branch, _, branchErr := c.client.Repositories.GetBranch(ctx, owner, repo, obs.HeadBranch, 3); branchErr != nil {
+					obs.WriteCapability = continuity.CapabilityUnknown
+				} else if branch.GetProtected() {
+					// Installation-level contents:write does not prove a ruleset
+					// bypass. Do not discover by attempting a mutation.
+					obs.WriteCapability = continuity.CapabilityUnknown
+				}
+			}
 		}
 	} else {
 		obs.WriteCapability = continuity.CapabilityUnknown
@@ -338,6 +350,11 @@ func FilterContinuityOwnedIssues(result *ActionableResult, records []continuity.
 	for _, rec := range records {
 		if !rec.Active || rec.State == continuity.StateSuperseded {
 			continue
+		}
+		for _, claim := range rec.SuppressionClaims {
+			if claim.Active && claim.WorkRef != "" {
+				owned[claim.WorkRef] = append(owned[claim.WorkRef], rec.Ref)
+			}
 		}
 		for _, rel := range rec.LinkedWork {
 			if rel.Ambiguous || strings.TrimSpace(rel.OwnedSlice) == "" {

@@ -56,11 +56,16 @@ type Client struct {
 	autoMergeLabel   string
 	logger           *slog.Logger
 	appAuth          *AppAuth // nil for token-authenticated clients
-	canariesEnabled  bool
-	canaryFailClosed bool
-	canaryRegistry   *ioscan.CanaryRegistry
-	canaryLeakFunc   func(ioscan.CanaryLeak)
-	appBotLogin      string // "<app-slug>[bot]" when the client authenticates as a GitHub App
+	// continuityWriteCapability is the installation-aware, non-mutating
+	// capability oracle used by PR/branch Continuity. App clients populate it
+	// from AppAuth; token clients leave it nil and use repository user
+	// permissions. Kept as a function seam for deterministic API-boundary tests.
+	continuityWriteCapability func(context.Context, string, string) (continuity.WriteCapability, error)
+	canariesEnabled           bool
+	canaryFailClosed          bool
+	canaryRegistry            *ioscan.CanaryRegistry
+	canaryLeakFunc            func(ioscan.CanaryLeak)
+	appBotLogin               string // "<app-slug>[bot]" when the client authenticates as a GitHub App
 	// prAuthz gates PR-open requests from the request-file watcher against the
 	// per-agent ACMM write-policy + forge-resistance. nil fails closed. Set by
 	// StartPRRequestWatcher.

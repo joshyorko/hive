@@ -12,6 +12,8 @@ import (
 	"os"
 	"testing"
 	"time"
+
+	"github.com/kubestellar/hive/pkg/continuity"
 )
 
 func TestNewAppAuth_ValidKey(t *testing.T) {
@@ -163,6 +165,75 @@ func TestNewClientFromApp(t *testing.T) {
 	}
 	if client.org != "myorg" {
 		t.Errorf("org = %q", client.org)
+	}
+}
+
+func TestAppInstallationRepositoryWriteCapabilityUsesScopedTokenGrant(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/app/installations/5678/access_tokens" {
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
+		}
+		writeJSON(t, w, map[string]any{
+			"token": "scoped", "expires_at": time.Now().Add(time.Hour).UTC().Format(time.RFC3339),
+			"permissions":  map[string]any{"contents": "write", "metadata": "read"},
+			"repositories": []any{map[string]any{"name": "widgets", "full_name": "acme/widgets"}},
+		})
+	}))
+	defer srv.Close()
+	auth, err := NewAppAuthFromPEM(1234, 5678, []byte(testAppPrivateKeyPEM(t)), slog.Default(), srv.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	capability, err := auth.RepositoryWriteCapability(context.Background(), "acme", "widgets")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if capability != continuity.CapabilityWritable {
+		t.Fatalf("capability=%q want writable", capability)
+	}
+}
+
+func TestAppInstallationRepositoryWriteCapabilityPermissionDenialIsUnwritable(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/app/installations/5678/access_tokens" {
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
+		}
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`{"message":"Resource not accessible by integration"}`))
+	}))
+	defer srv.Close()
+	auth, err := NewAppAuthFromPEM(1234, 5678, []byte(testAppPrivateKeyPEM(t)), slog.Default(), srv.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	capability, err := auth.RepositoryWriteCapability(context.Background(), "acme", "widgets")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if capability != continuity.CapabilityUnwritable {
+		t.Fatalf("capability=%q want unwritable", capability)
+	}
+}
+
+func TestAppInstallationRepositoryWriteCapabilityRepositoryExclusionIsUnwritable(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/app/installations/5678/access_tokens" {
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
+		}
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"message":"Not Found"}`))
+	}))
+	defer srv.Close()
+	auth, err := NewAppAuthFromPEM(1234, 5678, []byte(testAppPrivateKeyPEM(t)), slog.Default(), srv.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	capability, err := auth.RepositoryWriteCapability(context.Background(), "acme", "widgets")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if capability != continuity.CapabilityUnwritable {
+		t.Fatalf("capability=%q want unwritable", capability)
 	}
 }
 

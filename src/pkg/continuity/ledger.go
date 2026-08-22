@@ -149,6 +149,7 @@ func (l *Ledger) Refresh(obs Observation, now time.Time) (Record, error) {
 	}
 	work.State, work.StateReason = obs.State, obs.StateReason
 	work.LinkedWork = append([]WorkRelationship(nil), obs.LinkedWork...)
+	work.SuppressionClaims = append([]SuppressionClaim(nil), prior.SuppressionClaims...)
 	work.Acceptance = append([]AcceptanceDelta(nil), obs.Acceptance...)
 	work.Stack = append([]StackRelation(nil), obs.Stack...)
 	work.OverlappingPRs = append([]PRRef(nil), obs.OverlappingPRs...)
@@ -224,6 +225,7 @@ func (l *Ledger) AcceptDelivery(obs Observation, expectedHead, principal, proven
 	work.AdoptionGeneration = prior.AdoptionGeneration
 	work.Generation = prior.Generation + 1
 	work.AdoptedAt = prior.AdoptedAt
+	work.SuppressionClaims = append([]SuppressionClaim(nil), prior.SuppressionClaims...)
 	work.History = append(append([]Transition(nil), prior.History...), Transition{
 		Verb: "delivery", Generation: work.Generation, Principal: principal,
 		Provenance: provenance, At: now, Reason: "verified fast-forward continuation delivery",
@@ -257,6 +259,7 @@ func (l *Ledger) Reacquire(obs Observation, expected uint64, principal, authorit
 	work.AdoptionGeneration = prior.AdoptionGeneration + 1
 	work.Generation = prior.Generation + 1
 	work.AdoptedAt = now
+	work.SuppressionClaims = append([]SuppressionClaim(nil), prior.SuppressionClaims...)
 	work.History = append(append([]Transition(nil), prior.History...), Transition{Verb: "reacquire", Generation: work.Generation, Principal: principal, Provenance: authorityProvenance, At: now})
 	if err := l.commitLocked(key, &work); err != nil {
 		return Record{}, err
@@ -326,6 +329,10 @@ func (l *Ledger) LookupWork(workKey string) []Record {
 		if !rec.Active || rec.State == StateSuperseded {
 			continue
 		}
+		if activeSuppressionClaim(rec.SuppressionClaims, workKey) != nil {
+			out = append(out, rec.clone())
+			continue
+		}
 		for _, rel := range rec.LinkedWork {
 			if rel.WorkRef == workKey && !rel.Ambiguous && strings.TrimSpace(rel.OwnedSlice) != "" {
 				out = append(out, rec.clone())
@@ -335,6 +342,62 @@ func (l *Ledger) LookupWork(workKey string) []Record {
 	}
 	sortRecords(out)
 	return out
+}
+
+func (l *Ledger) PromoteSuppression(ref PRRef, workRef string, expected uint64, principal, authorityProvenance string, now time.Time) (Record, error) {
+	if strings.TrimSpace(principal) == "" || strings.TrimSpace(authorityProvenance) == "" || strings.HasPrefix(authorityProvenance, "github-label:") {
+		return Record{}, ErrUnauthorized
+	}
+	if !validWorkKey(workRef) {
+		return Record{}, fmt.Errorf("invalid work ref %q", workRef)
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	prior, ok := l.records[ref.Key()]
+	if !ok {
+		return Record{}, ErrNotFound
+	}
+	if !prior.Active {
+		return Record{}, ErrNotFound
+	}
+	if !suppressionClaimDiscovered(prior.LinkedWork, workRef) {
+		return Record{}, ErrNotFound
+	}
+	if claim := activeSuppressionClaim(prior.SuppressionClaims, workRef); claim != nil {
+		return prior.clone(), nil
+	}
+	if prior.Generation != expected {
+		return Record{}, ErrGenerationConflict
+	}
+	work := prior.clone()
+	work.Generation++
+	work.SuppressionClaims = append(work.SuppressionClaims, SuppressionClaim{
+		WorkRef: workRef, Principal: principal, Provenance: authorityProvenance,
+		Generation: work.Generation, Active: true, ClaimedAt: now,
+	})
+	work.History = append(work.History, Transition{Verb: "suppress", Generation: work.Generation, Principal: principal, Provenance: authorityProvenance, At: now, Reason: workRef})
+	if err := l.commitLocked(ref.Key(), &work); err != nil {
+		return Record{}, err
+	}
+	return work.clone(), nil
+}
+
+func suppressionClaimDiscovered(rels []WorkRelationship, workRef string) bool {
+	for _, rel := range rels {
+		if rel.WorkRef == workRef && rel.Ambiguous && rel.Relationship != RelationshipCloses {
+			return true
+		}
+	}
+	return false
+}
+
+func activeSuppressionClaim(claims []SuppressionClaim, workRef string) *SuppressionClaim {
+	for i := range claims {
+		if claims[i].Active && claims[i].WorkRef == workRef {
+			return &claims[i]
+		}
+	}
+	return nil
 }
 
 func (l *Ledger) commitLocked(key string, rec *Record) error {

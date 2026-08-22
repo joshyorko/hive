@@ -15,6 +15,7 @@ type continuityPRRequest struct {
 	Action             string `json:"action"`
 	Repo               string `json:"repo"`
 	PRNumber           int    `json:"pr_number"`
+	WorkRef            string `json:"work_ref,omitempty"`
 	ExpectedGeneration uint64 `json:"expected_generation,omitempty"`
 	Reason             string `json:"reason,omitempty"`
 }
@@ -59,7 +60,7 @@ func (s *Server) handleContinuityPRAdoptions(w http.ResponseWriter, r *http.Requ
 	defer s.continuityMu.Unlock()
 
 	switch action {
-	case "dry_run", "adopt", "refresh", "reacquire":
+	case "dry_run", "adopt", "refresh", "reacquire", "promote_suppression":
 		observe := s.deps.ObserveContinuityPR
 		if observe == nil && s.deps.GHClient != nil {
 			observe = s.deps.GHClient.ObserveContinuityPR
@@ -87,6 +88,8 @@ func (s *Server) handleContinuityPRAdoptions(w http.ResponseWriter, r *http.Requ
 			rec, err = s.deps.ContinuityLedger.Refresh(obs, now)
 		case "reacquire":
 			rec, err = s.deps.ContinuityLedger.Reacquire(obs, req.ExpectedGeneration, principal, "verified-owner-dashboard", now)
+		case "promote_suppression":
+			rec, err = s.deps.ContinuityLedger.PromoteSuppression(ref, req.WorkRef, req.ExpectedGeneration, principal, "verified-owner-dashboard", now)
 		}
 		response.Record = &rec
 	case "revoke":
@@ -94,7 +97,7 @@ func (s *Server) handleContinuityPRAdoptions(w http.ResponseWriter, r *http.Requ
 		err = revokeErr
 		response.Record = &rec
 	default:
-		jsonError(w, "action must be dry_run, adopt, refresh, reacquire, or revoke", http.StatusBadRequest)
+		jsonError(w, "action must be dry_run, adopt, refresh, reacquire, promote_suppression, or revoke", http.StatusBadRequest)
 		return
 	}
 	if err != nil {

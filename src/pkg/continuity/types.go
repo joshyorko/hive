@@ -65,6 +65,15 @@ type WorkRelationship struct {
 	Ambiguous    bool   `json:"ambiguous,omitempty"`
 }
 
+type SuppressionClaim struct {
+	WorkRef    string    `json:"work_ref"`
+	Principal  string    `json:"principal"`
+	Provenance string    `json:"provenance"`
+	Generation uint64    `json:"generation"`
+	Active     bool      `json:"active"`
+	ClaimedAt  time.Time `json:"claimed_at"`
+}
+
 type AcceptanceDelta struct {
 	WorkRef            string   `json:"work_ref"`
 	Owned              []string `json:"owned,omitempty"`
@@ -82,28 +91,29 @@ type StackRelation struct {
 }
 
 type Observation struct {
-	Ref             PRRef              `json:"ref"`
-	OriginalAuthor  string             `json:"original_author"`
-	HeadRepo        string             `json:"head_repository"`
-	HeadBranch      string             `json:"head_branch"`
-	BaseBranch      string             `json:"base_branch"`
-	HeadSHA         string             `json:"head_sha"`
-	BaseSHA         string             `json:"base_sha"`
-	MergeBaseSHA    string             `json:"merge_base_sha"`
-	Draft           bool               `json:"draft"`
-	Hold            bool               `json:"hold"`
-	Mergeable       string             `json:"mergeable"`
-	CIStatus        string             `json:"ci_status"`
-	WriteCapability WriteCapability    `json:"write_capability"`
-	LinkedWork      []WorkRelationship `json:"linked_work,omitempty"`
-	Acceptance      []AcceptanceDelta  `json:"acceptance_delta,omitempty"`
-	Stack           []StackRelation    `json:"stack,omitempty"`
-	OverlappingPRs  []PRRef            `json:"overlapping_prs,omitempty"`
-	ChangedFiles    []string           `json:"changed_files,omitempty"`
-	State           State              `json:"state"`
-	StateReason     string             `json:"state_reason,omitempty"`
-	Provenance      string             `json:"provenance"`
-	ObservedAt      time.Time          `json:"observed_at"`
+	Ref               PRRef              `json:"ref"`
+	OriginalAuthor    string             `json:"original_author"`
+	HeadRepo          string             `json:"head_repository"`
+	HeadBranch        string             `json:"head_branch"`
+	BaseBranch        string             `json:"base_branch"`
+	HeadSHA           string             `json:"head_sha"`
+	BaseSHA           string             `json:"base_sha"`
+	MergeBaseSHA      string             `json:"merge_base_sha"`
+	Draft             bool               `json:"draft"`
+	Hold              bool               `json:"hold"`
+	Mergeable         string             `json:"mergeable"`
+	CIStatus          string             `json:"ci_status"`
+	WriteCapability   WriteCapability    `json:"write_capability"`
+	LinkedWork        []WorkRelationship `json:"linked_work,omitempty"`
+	SuppressionClaims []SuppressionClaim `json:"suppression_claims,omitempty"`
+	Acceptance        []AcceptanceDelta  `json:"acceptance_delta,omitempty"`
+	Stack             []StackRelation    `json:"stack,omitempty"`
+	OverlappingPRs    []PRRef            `json:"overlapping_prs,omitempty"`
+	ChangedFiles      []string           `json:"changed_files,omitempty"`
+	State             State              `json:"state"`
+	StateReason       string             `json:"state_reason,omitempty"`
+	Provenance        string             `json:"provenance"`
+	ObservedAt        time.Time          `json:"observed_at"`
 }
 
 func (o Observation) Validate() error {
@@ -168,6 +178,7 @@ type Record struct {
 	BaseSHA            string             `json:"base_sha"`
 	MergeBaseSHA       string             `json:"merge_base_sha"`
 	LinkedWork         []WorkRelationship `json:"linked_work,omitempty"`
+	SuppressionClaims  []SuppressionClaim `json:"suppression_claims,omitempty"`
 	Acceptance         []AcceptanceDelta  `json:"acceptance_delta,omitempty"`
 	Stack              []StackRelation    `json:"stack,omitempty"`
 	OverlappingPRs     []PRRef            `json:"overlapping_prs,omitempty"`
@@ -196,6 +207,7 @@ func (r Record) Continuable() bool {
 func (r Record) clone() Record {
 	out := r
 	out.LinkedWork = append([]WorkRelationship(nil), r.LinkedWork...)
+	out.SuppressionClaims = append([]SuppressionClaim(nil), r.SuppressionClaims...)
 	out.Acceptance = append([]AcceptanceDelta(nil), r.Acceptance...)
 	out.Stack = append([]StackRelation(nil), r.Stack...)
 	out.OverlappingPRs = append([]PRRef(nil), r.OverlappingPRs...)

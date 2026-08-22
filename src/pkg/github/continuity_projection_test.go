@@ -58,3 +58,22 @@ func TestFilterContinuityOwnedIssuesSuppressesWithoutLivePRClaim(t *testing.T) {
 		t.Fatalf("revoked adoption still suppressed: %+v", result.Issues)
 	}
 }
+
+func TestFilterContinuityOwnedIssuesHonorsPartialSuppressionWithoutClosingOwnership(t *testing.T) {
+	rec := adoptedRecord(17, continuity.StateContinue, continuity.CapabilityWritable)
+	rec.LinkedWork = []continuity.WorkRelationship{{WorkRef: "acme/widgets#9", Relationship: continuity.RelationshipReferences, Evidence: "Progresses #9", Ambiguous: true}}
+	rec.SuppressionClaims = []continuity.SuppressionClaim{{WorkRef: "acme/widgets#9", Principal: "owner", Provenance: "verified-owner-dashboard", Active: true}}
+	result := &ActionableResult{Issues: IssueResult{Count: 2, Items: []Issue{
+		{Repo: "acme/widgets", Number: 9}, {Repo: "acme/widgets", Number: 10},
+	}}}
+
+	if got := FilterContinuityOwnedIssues(result, []continuity.Record{rec}, nil); got != 1 {
+		t.Fatalf("suppressed=%d result=%+v", got, result.Issues)
+	}
+	if result.Issues.Count != 1 || result.Issues.Items[0].Number != 10 {
+		t.Fatalf("partial suppression did not remove only the claimed issue: %+v", result.Issues)
+	}
+	if rec.LinkedWork[0].Relationship != continuity.RelationshipReferences || !rec.LinkedWork[0].Ambiguous || rec.LinkedWork[0].OwnedSlice != "" {
+		t.Fatalf("partial suppression changed closing ownership: %+v", rec.LinkedWork[0])
+	}
+}

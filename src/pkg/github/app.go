@@ -9,11 +9,13 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	gh "github.com/google/go-github/v72/github"
+	"github.com/kubestellar/hive/pkg/continuity"
 )
 
 const (
@@ -348,6 +350,40 @@ func (a *AppAuth) ScopedTokenForRepos(ctx context.Context, tier string, repos []
 	return installToken.GetToken(), nil
 }
 
+// RepositoryWriteCapability proves, without mutating repository state, that
+// this installation can mint a token restricted to repo with contents:write.
+// GitHub's Repository.Permissions map is user-oriented and may report every
+// value false for installation tokens, so it is not an App capability oracle.
+func (a *AppAuth) RepositoryWriteCapability(ctx context.Context, owner, repo string) (continuity.WriteCapability, error) {
+	if a == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(repo) == "" {
+		return continuity.CapabilityUnknown, fmt.Errorf("repository write capability requires App auth and owner/repo")
+	}
+	jwtToken, err := a.generateJWT()
+	if err != nil {
+		return continuity.CapabilityUnknown, fmt.Errorf("generating JWT for repository capability: %w", err)
+	}
+	opts := &gh.InstallationTokenOptions{
+		Permissions:  &gh.InstallationPermissions{Contents: gh.Ptr("write"), Metadata: gh.Ptr("read")},
+		Repositories: []string{repo},
+	}
+	mintCtx, cancel := mintContext(ctx)
+	defer cancel()
+	installToken, resp, err := newJWTClient(jwtToken, a.apiURL).Apps.CreateInstallationToken(mintCtx, a.installationID, opts)
+	if err != nil {
+		if resp != nil {
+			status := resp.StatusCode
+			if status >= http.StatusBadRequest && status < http.StatusInternalServerError && status != http.StatusRequestTimeout && status != http.StatusTooManyRequests {
+				return continuity.CapabilityUnwritable, nil
+			}
+		}
+		return continuity.CapabilityUnknown, fmt.Errorf("proving installation write capability for %s/%s: %w", owner, repo, err)
+	}
+	if installToken == nil || installToken.GetPermissions().GetContents() != "write" {
+		return continuity.CapabilityUnwritable, nil
+	}
+	return continuity.CapabilityWritable, nil
+}
+
 // AgentTokenCachePath returns the per-agent token cache file path.
 func AgentTokenCachePath(agentName string) string {
 	return agentTokenCacheDir + "/gh-token-" + agentName + ".cache"
@@ -587,11 +623,12 @@ func NewClientFromAppWithBotLogin(auth *AppAuth, org string, repos []string, log
 	setBaseURL(client, auth.apiURL)
 
 	return &Client{
-		client:      client,
-		org:         org,
-		repos:       repos,
-		logger:      logger,
-		appAuth:     auth,
-		appBotLogin: appBotLogin,
+		client:                    client,
+		org:                       org,
+		repos:                     repos,
+		logger:                    logger,
+		appAuth:                   auth,
+		continuityWriteCapability: auth.RepositoryWriteCapability,
+		appBotLogin:               appBotLogin,
 	}
 }
