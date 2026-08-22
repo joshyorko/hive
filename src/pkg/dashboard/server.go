@@ -542,7 +542,11 @@ type FrontendRepo struct {
 	Issues           int    `json:"issues"`
 	PRs              int    `json:"prs"`
 	ActionableIssues []any  `json:"actionableIssues"`
-	OpenPrs          []any  `json:"openPrs"`
+	// SourceIssues is the authoritative per-enumeration source snapshot used by
+	// contributor/kick admission. It is internal to the process: the public
+	// dashboard continues to expose only actionable issues.
+	SourceIssues []any `json:"-"`
+	OpenPrs      []any `json:"openPrs"`
 }
 
 type FrontendBeads struct {

@@ -167,6 +167,7 @@ type Issue struct {
 	Repo      string    `json:"repo"`
 	Number    int       `json:"number"`
 	Title     string    `json:"title"`
+	Body      string    `json:"body,omitempty"`
 	Author    string    `json:"author"`
 	Labels    []string  `json:"labels"`
 	Assignees []string  `json:"assignees"`
@@ -179,6 +180,7 @@ type Issue struct {
 	// offers. Zero when produced by an older enumerator; consumers must fail
 	// OPEN (treat activity as unknown → do not suppress) in that case.
 	UpdatedAt  time.Time `json:"updated_at,omitempty"`
+	State      string    `json:"state,omitempty"`
 	AgeMinutes int       `json:"age_minutes"`
 	URL        string    `json:"url"`
 	IsTracker  bool      `json:"is_tracker"`
@@ -301,8 +303,13 @@ type RepoCounts struct {
 }
 
 type IssueResult struct {
-	Count         int     `json:"count"`
-	Items         []Issue `json:"items"`
+	Count int     `json:"count"`
+	Items []Issue `json:"items"`
+	// SourceItems is the one-enumeration source snapshot used by generic
+	// dependency observers. It includes configured-repository issues outside
+	// the actionable set (including closed targets), and is deliberately not
+	// serialized into the durable last-actionable cache.
+	SourceItems   []Issue `json:"-"`
 	SLAViolations int     `json:"sla_violations"`
 }
 
@@ -433,6 +440,7 @@ func (c *Client) EnumerateActionable(ctx context.Context) (*ActionableResult, er
 	}
 
 	var allIssues []Issue
+	var allSourceItems []Issue
 	var allPRs []PullRequest
 	var holdItems []HoldItem
 	var allStaleDrafts []PullRequest
@@ -442,7 +450,7 @@ func (c *Client) EnumerateActionable(ctx context.Context) (*ActionableResult, er
 	failedRepos := 0
 	var lastFetchErr error
 	for _, repo := range repos {
-		issues, held, issueTotal, err := c.fetchIssues(ctx, repo, now)
+		issues, sourceItems, held, issueTotal, err := c.fetchIssues(ctx, repo, now)
 		if err != nil {
 			c.logger.Warn("failed to fetch issues", "repo", repo, "error", err)
 			failedRepos++
@@ -450,6 +458,7 @@ func (c *Client) EnumerateActionable(ctx context.Context) (*ActionableResult, er
 			continue
 		}
 		allIssues = append(allIssues, issues...)
+		allSourceItems = append(allSourceItems, sourceItems...)
 		holdItems = append(holdItems, held...)
 
 		prs, heldPRs, staleDrafts, prTotal, err := c.fetchPRs(ctx, repo)
@@ -498,6 +507,7 @@ func (c *Client) EnumerateActionable(ctx context.Context) (*ActionableResult, er
 	result.Issues = IssueResult{
 		Count:         len(allIssues),
 		Items:         allIssues,
+		SourceItems:   allSourceItems,
 		SLAViolations: slaViolations,
 	}
 	result.PRs = PRResult{
@@ -525,11 +535,11 @@ func (c *Client) splitRepo(repo string) (owner, repoName string) {
 	return c.org, repo
 }
 
-func (c *Client) fetchIssues(ctx context.Context, repo string, now time.Time) (actionable []Issue, held []HoldItem, totalIssues int, err error) {
+func (c *Client) fetchIssues(ctx context.Context, repo string, now time.Time) (actionable []Issue, sourceItems []Issue, held []HoldItem, totalIssues int, err error) {
 	issueFilter := c.getIssueFilter()
 	owner, repoName := c.splitRepo(repo)
 	opts := &gh.IssueListByRepoOptions{
-		State:       "open",
+		State:       "all",
 		ListOptions: gh.ListOptions{PerPage: 100},
 	}
 
@@ -537,7 +547,7 @@ func (c *Client) fetchIssues(ctx context.Context, repo string, now time.Time) (a
 	for {
 		issues, resp, err := c.client.Issues.ListByRepo(ctx, owner, repoName, opts)
 		if err != nil {
-			return nil, nil, 0, fmt.Errorf("listing issues for %s/%s: %w", owner, repoName, err)
+			return nil, nil, nil, 0, fmt.Errorf("listing issues for %s/%s: %w", owner, repoName, err)
 		}
 		allIssues = append(allIssues, issues...)
 		if resp.NextPage == 0 {
@@ -551,8 +561,28 @@ func (c *Client) fetchIssues(ctx context.Context, repo string, now time.Time) (a
 			continue
 		}
 
-		totalIssues++
 		labels := extractLabels(issue.Labels)
+		state := strings.ToLower(strings.TrimSpace(issue.GetState()))
+		if state == "" {
+			state = "open"
+		}
+		sourceItems = append(sourceItems, Issue{
+			Repo:      repo,
+			Number:    issue.GetNumber(),
+			Title:     issue.GetTitle(),
+			Body:      issue.GetBody(),
+			Author:    safeGetLogin(issue.GetUser()),
+			Labels:    labels,
+			Assignees: extractAssignees(issue.Assignees),
+			CreatedAt: issue.GetCreatedAt().Time,
+			UpdatedAt: issue.GetUpdatedAt().Time,
+			State:     state,
+			URL:       issue.GetHTMLURL(),
+		})
+		if state != "open" {
+			continue
+		}
+		totalIssues++
 
 		if isHeld(labels) {
 			held = append(held, HoldItem{
@@ -589,18 +619,20 @@ func (c *Client) fetchIssues(ctx context.Context, repo string, now time.Time) (a
 			Repo:       repo,
 			Number:     issue.GetNumber(),
 			Title:      issue.GetTitle(),
+			Body:       issue.GetBody(),
 			Author:     safeGetLogin(issue.GetUser()),
 			Labels:     labels,
 			Assignees:  extractAssignees(issue.Assignees),
 			CreatedAt:  issue.GetCreatedAt().Time,
 			UpdatedAt:  issue.GetUpdatedAt().Time,
+			State:      state,
 			AgeMinutes: ageMinutes,
 			URL:        issue.GetHTMLURL(),
 			IsTracker:  isTracker(issue.GetTitle(), labels, issue.GetBody()),
 		})
 	}
 
-	return actionable, held, totalIssues, nil
+	return actionable, sourceItems, held, totalIssues, nil
 }
 
 // staleDraftAfter matches the age threshold the scanner kick prompt already

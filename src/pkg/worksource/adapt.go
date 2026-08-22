@@ -24,6 +24,8 @@ func ToGitHubIssues(issues []Issue) []github.Issue {
 			Author:     ws.Author,
 			Labels:     ws.Labels,
 			Assignees:  ws.Assignees,
+			Body:       ws.Body,
+			State:      ws.State,
 			CreatedAt:  ws.CreatedAt,
 			UpdatedAt:  ws.UpdatedAt,
 			URL:        ws.URL,

@@ -38,12 +38,24 @@ type Issue struct {
 	Priority string `json:"priority,omitempty"`
 	// State is the issue state string from the source ("open", "Todo", etc.).
 	State string `json:"state"`
+	// Body is the source's authoritative description. It is retained for
+	// source-observation adapters; ordinary scheduling does not inspect it.
+	Body string `json:"body,omitempty"`
 	// CreatedAt is when the issue was filed.
 	CreatedAt time.Time `json:"created_at"`
 	// UpdatedAt is the last-activity timestamp. Zero when unknown.
 	UpdatedAt time.Time `json:"updated_at,omitempty"`
 	// URL is the canonical web URL of the issue.
 	URL string `json:"url"`
+}
+
+// DependencySnapshot is one authoritative source view used by an admission
+// sweep. Authority bounds which repositories may be followed; the observer
+// never fetches or invents records outside this set.
+type DependencySnapshot struct {
+	Issues           []Issue
+	Authority        []string
+	EnrollmentLabels []string
 }
 
 // WorkSource is the Step 01 abstraction: it enumerates actionable work items

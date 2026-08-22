@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"encoding/json"
 	"sort"
 	"strconv"
 	"strings"
@@ -9,6 +10,7 @@ import (
 	"github.com/kubestellar/hive/pkg/beads"
 	"github.com/kubestellar/hive/pkg/convergence"
 	"github.com/kubestellar/hive/pkg/planning"
+	"github.com/kubestellar/hive/pkg/worksource"
 )
 
 // ── Dependency observation for contributor-neutral admission (#3845) ──────────
@@ -146,13 +148,23 @@ const beadLedgerPartialReason = "BeadLedgerPartial"
 // path, and — because a sweep is discarded when the pass ends — keeps every
 // pass level-triggered against current ledger state.
 type contributorAdmissionSweep struct {
-	deps *beadDependencyIndex
+	deps   *beadDependencyIndex
+	source worksource.DependencySnapshot
 }
 
 // newAdmissionSweep snapshots the bead ledger for one admission pass. Callers
 // build it ONCE before iterating candidates and pass it to every
 // evaluateContributorNeutralAdmission call in that pass.
 func (h *ContributeWSHub) newAdmissionSweep() *contributorAdmissionSweep {
+	return h.newAdmissionSweepWithSource(h.sourceDependencySnapshot())
+}
+
+// newAdmissionSweepWithSource builds one admission snapshot from the supplied
+// authoritative source view and the bead ledger. Kick projection uses this form
+// because its enumeration result contains the source snapshot before the
+// dashboard status publisher catches up; queue and selectTask use the status
+// publisher's same view.
+func (h *ContributeWSHub) newAdmissionSweepWithSource(source worksource.DependencySnapshot) *contributorAdmissionSweep {
 	idx := h.buildBeadDependencyIndex()
 	if idx.partial && h != nil && h.logger != nil {
 		// Say it out loud every sweep. A truncated ledger means the gate is
@@ -164,7 +176,115 @@ func (h *ContributeWSHub) newAdmissionSweep() *contributorAdmissionSweep {
 			"stores_failed", h.server.deps.BeadStoreLoadFailures,
 			"effect", "candidates with no readable record are admitted, not withheld")
 	}
-	return &contributorAdmissionSweep{deps: idx}
+	return &contributorAdmissionSweep{deps: idx, source: source}
+}
+
+func (h *ContributeWSHub) sourceDependencySnapshot() worksource.DependencySnapshot {
+	if h == nil || h.server == nil {
+		return worksource.DependencySnapshot{}
+	}
+	h.server.statusMu.RLock()
+	status := h.server.status
+	if status == nil {
+		h.server.statusMu.RUnlock()
+		return worksource.DependencySnapshot{
+			Authority:        h.sourceAuthority(),
+			EnrollmentLabels: h.sourceEnrollmentLabels(),
+		}
+	}
+	snapshot := sourceSnapshotFromStatus(status)
+	h.server.statusMu.RUnlock()
+	if len(snapshot.Authority) == 0 {
+		snapshot.Authority = h.sourceAuthority()
+	}
+	snapshot.EnrollmentLabels = h.sourceEnrollmentLabels()
+	return snapshot
+}
+
+func (h *ContributeWSHub) sourceAuthority() []string {
+	if h == nil || h.server == nil || h.server.deps == nil || h.server.deps.Config == nil {
+		return nil
+	}
+	cfg := h.server.deps.Config
+	authority := make([]string, 0, len(cfg.Project.Repos))
+	for _, repo := range cfg.Project.Repos {
+		full := repo
+		if !strings.Contains(repo, "/") {
+			full = cfg.Project.Org + "/" + repo
+		}
+		authority = append(authority, full)
+	}
+	return authority
+}
+
+func (h *ContributeWSHub) sourceEnrollmentLabels() []string {
+	if h == nil || h.server == nil || h.server.deps == nil || h.server.deps.Config == nil {
+		return nil
+	}
+	return append([]string(nil), h.server.deps.Config.Project.IssueFilter.RequireLabels...)
+}
+
+func sourceSnapshotFromStatus(status *StatusPayload) worksource.DependencySnapshot {
+	if status == nil {
+		return worksource.DependencySnapshot{}
+	}
+	snapshot := worksource.DependencySnapshot{}
+	for _, repo := range status.Repos {
+		if repo.Full != "" {
+			snapshot.Authority = append(snapshot.Authority, repo.Full)
+		}
+		if repo.Name != "" {
+			snapshot.Authority = append(snapshot.Authority, repo.Name)
+		}
+		for _, raw := range repo.SourceIssues {
+			if issue, ok := sourceIssueFromAny(repo.Full, raw, ""); ok {
+				snapshot.Issues = append(snapshot.Issues, issue)
+			}
+		}
+		for _, raw := range repo.ActionableIssues {
+			if issue, ok := sourceIssueFromAny(repo.Full, raw, "open"); ok {
+				snapshot.Issues = append(snapshot.Issues, issue)
+			}
+		}
+	}
+	return snapshot
+}
+
+func sourceIssueFromAny(repo string, raw any, defaultState string) (worksource.Issue, bool) {
+	b, err := json.Marshal(raw)
+	if err != nil {
+		return worksource.Issue{}, false
+	}
+	var issue map[string]any
+	if err := json.Unmarshal(b, &issue); err != nil {
+		return worksource.Issue{}, false
+	}
+	number := intFromAny(issue["number"])
+	if number <= 0 {
+		return worksource.Issue{}, false
+	}
+	state := stringFromAny(issue["state"])
+	if state == "" {
+		state = defaultState
+	}
+	updatedAt := time.Time{}
+	if rawUpdated := stringFromAny(issue["updated_at"]); rawUpdated != "" {
+		updatedAt, _ = time.Parse(time.RFC3339Nano, rawUpdated)
+	}
+	return worksource.Issue{
+		SourceType: stringFromAny(issue["source_type"]),
+		Repo:       repo,
+		ExternalID: stringFromAny(issue["external_id"]),
+		Number:     number,
+		Title:      stringFromAny(issue["title"]),
+		Author:     stringFromAny(issue["author"]),
+		Labels:     stringSliceFromAny(issue["labels"]),
+		Assignees:  stringSliceFromAny(issue["assignees"]),
+		State:      state,
+		Body:       stringFromAny(issue["body"]),
+		UpdatedAt:  updatedAt,
+		URL:        stringFromAny(issue["url"]),
+	}, true
 }
 
 // buildBeadDependencyIndex reads every configured bead store once and indexes
@@ -439,11 +559,25 @@ func (h *ContributeWSHub) observeCandidateDependencies(sweep *contributorAdmissi
 	obs := convergence.Observation{
 		Subject: convergence.Subject{Repo: candidate.repoFull, Number: candidate.number},
 	}
-	if sweep == nil || sweep.deps == nil {
+	if sweep == nil {
 		return obs
 	}
-	if sweep.deps.stores == 0 && !sweep.deps.partial {
-		return obs // no ledger wired → nothing is declared → nothing to wait for
+	if sweep.deps != nil && (sweep.deps.stores > 0 || sweep.deps.partial) {
+		obs = h.observeBeadDependencies(sweep, candidate)
+	}
+	source := worksource.ObserveDependencies(sweep.source, worksource.Ref{
+		SourceType: candidate.ref.SourceType,
+		Repo:       candidate.repoFull,
+		ExternalID: candidate.ref.ExternalID,
+		Number:     candidate.number,
+		URL:        candidate.ref.URL,
+	})
+	return composeAdmissionObservations(obs, source)
+}
+
+func (h *ContributeWSHub) observeBeadDependencies(sweep *contributorAdmissionSweep, candidate contributorAdmissionCandidate) convergence.Observation {
+	obs := convergence.Observation{
+		Subject: convergence.Subject{Repo: candidate.repoFull, Number: candidate.number},
 	}
 
 	var record beadRecord
@@ -508,6 +642,64 @@ func (h *ContributeWSHub) observeCandidateDependencies(sweep *contributorAdmissi
 		}
 	}
 	return obs
+}
+
+// composeAdmissionObservations is the deterministic precedence rule between
+// the existing canonical bead declaration and the newly observed source
+// declaration: both are conjunctive. A source declaration cannot bypass a bead
+// blocker, and a bead cannot bypass an explicit source blocker. Duplicate IDs
+// combine conservatively as False > Unknown > True. This keeps existing bead
+// behaviour unchanged when no enrolled source declaration is present while
+// preventing either observation from silently weakening the other.
+func composeAdmissionObservations(bead, source convergence.Observation) convergence.Observation {
+	if !source.Found && len(source.Dependencies) == 0 && !source.Degraded {
+		return bead
+	}
+	if !bead.Found && len(bead.Dependencies) == 0 && !bead.Degraded {
+		return source
+	}
+	merged := bead
+	merged.Found = bead.Found || source.Found
+	if merged.RecordID == "" {
+		merged.RecordID = source.RecordID
+	} else if source.RecordID != "" {
+		merged.RecordID += ";" + source.RecordID
+	}
+	if merged.Generation == "" {
+		merged.Generation = source.Generation
+	} else if source.Generation != "" {
+		merged.Generation += ";source=" + source.Generation
+	}
+	merged.Degraded = bead.Degraded || source.Degraded
+	if merged.DegradedReason == "" {
+		merged.DegradedReason = source.DegradedReason
+	}
+	byID := make(map[string]convergence.Dependency, len(bead.Dependencies)+len(source.Dependencies))
+	for _, dep := range append(append([]convergence.Dependency(nil), bead.Dependencies...), source.Dependencies...) {
+		if existing, ok := byID[dep.ID]; !ok || dependencyStatusSeverity(dep.Status) > dependencyStatusSeverity(existing.Status) {
+			byID[dep.ID] = dep
+		} else if existing.Detail == "" {
+			existing.Detail = dep.Detail
+			byID[dep.ID] = existing
+		}
+	}
+	merged.Dependencies = nil
+	for _, dep := range byID {
+		merged.Dependencies = append(merged.Dependencies, dep)
+	}
+	sort.Slice(merged.Dependencies, func(i, j int) bool { return merged.Dependencies[i].ID < merged.Dependencies[j].ID })
+	return merged
+}
+
+func dependencyStatusSeverity(status convergence.ConditionStatus) int {
+	switch status {
+	case convergence.ConditionFalse:
+		return 2
+	case convergence.ConditionUnknown:
+		return 1
+	default:
+		return 0
+	}
 }
 
 // beadSatisfied reports whether a dependency bead is in a terminal state.

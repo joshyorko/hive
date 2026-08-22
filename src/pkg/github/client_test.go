@@ -13,6 +13,7 @@ import (
 	"time"
 
 	gh "github.com/google/go-github/v72/github"
+	"github.com/kubestellar/hive/pkg/config"
 )
 
 // newTestClient creates a Client whose internal go-github client points at the
@@ -55,10 +56,14 @@ type wirePR struct {
 type wireIssue struct {
 	Number    int         `json:"number"`
 	Title     string      `json:"title"`
+	Body      string      `json:"body,omitempty"`
+	State     string      `json:"state,omitempty"`
 	User      wireUser    `json:"user"`
 	Labels    []wireLabel `json:"labels"`
 	Assignees []wireUser  `json:"assignees"`
 	CreatedAt string      `json:"created_at"`
+	UpdatedAt string      `json:"updated_at,omitempty"`
+	HTMLURL   string      `json:"html_url,omitempty"`
 	// Setting PullRequest makes IsPullRequest() return true.
 	PullRequest *struct{} `json:"pull_request,omitempty"`
 }
@@ -169,6 +174,53 @@ func TestEnumerateActionable_BasicCounts(t *testing.T) {
 	}
 	if result.Hold.PRs != 1 {
 		t.Errorf("Hold.PRs = %d, want 1", result.Hold.PRs)
+	}
+}
+
+func TestEnumerateActionable_CarriesOneBoundedSourceSnapshotPerRepo(t *testing.T) {
+	org, repo := "testorg", "testrepo"
+	issueCalls := 0
+	mux := http.NewServeMux()
+	mux.HandleFunc(fmt.Sprintf("/repos/%s/%s/issues", org, repo), func(w http.ResponseWriter, r *http.Request) {
+		issueCalls++
+		if got := r.URL.Query().Get("state"); got != "all" {
+			t.Errorf("issues state query = %q, want all", got)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(mustMarshal(t, []wireIssue{
+			{Number: 1, Title: "candidate", Body: "Depends on: #2, #3, #4", State: "open", User: wireUser{"alice"}, Labels: []wireLabel{{Name: "hive-managed"}}, CreatedAt: hoursAgo(1), UpdatedAt: hoursAgo(1)},
+			{Number: 2, Title: "open dependency", State: "open", User: wireUser{"bob"}, CreatedAt: hoursAgo(2), UpdatedAt: hoursAgo(1)},
+			{Number: 3, Title: "closed dependency", State: "closed", User: wireUser{"carol"}, CreatedAt: hoursAgo(3), UpdatedAt: hoursAgo(1)},
+		}))
+	})
+	mux.HandleFunc(fmt.Sprintf("/repos/%s/%s/pulls", org, repo), func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte("[]"))
+	})
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	c := newTestClient(t, server, org, []string{repo})
+	c.SetIssueFilter(config.IssueFilterConfig{RequireLabels: []string{"hive-managed"}})
+	result, err := c.EnumerateActionable(context.Background())
+	if err != nil {
+		t.Fatalf("EnumerateActionable: %v", err)
+	}
+	if issueCalls != 1 {
+		t.Fatalf("issue-list API calls = %d, want one bounded list request for all three dependency identities", issueCalls)
+	}
+	if len(result.Issues.Items) != 1 || result.Issues.Items[0].Body != "Depends on: #2, #3, #4" {
+		t.Fatalf("actionable issues = %+v, want body-bearing enrolled candidate", result.Issues.Items)
+	}
+	if len(result.Issues.SourceItems) != 3 {
+		t.Fatalf("source snapshot length = %d, want open and closed source records", len(result.Issues.SourceItems))
+	}
+	states := map[int]string{}
+	for _, issue := range result.Issues.SourceItems {
+		states[issue.Number] = issue.State
+	}
+	if states[2] != "open" || states[3] != "closed" {
+		t.Fatalf("source states = %v, want current open/closed values", states)
 	}
 }
 
@@ -509,8 +561,8 @@ func TestIsHeld(t *testing.T) {
 		{[]string{"hold"}, true},
 		{[]string{"on-hold"}, true},
 		{[]string{"hold/review"}, true},
-		{[]string{"HOLD"}, true},             // case-insensitive
-		{[]string{"bug", "hold"}, true},      // mixed labels
+		{[]string{"HOLD"}, true},        // case-insensitive
+		{[]string{"bug", "hold"}, true}, // mixed labels
 		{[]string{"bug", "enhancement"}, false},
 		{[]string{}, false},
 		{nil, false},

@@ -151,3 +151,42 @@ func TestObserveConvergenceKickAdmission_NilInputsAreSafe(t *testing.T) {
 	applyConvergenceKickAdmission(cfg, kickTestDashboard(t), nil, nil, logger)
 	applyConvergenceKickAdmission(cfg, kickTestDashboard(t), kickTestActionable(), nil, nil)
 }
+
+func TestObserveConvergenceKickAdmission_SourceShadowAndEnforceShareObservation(t *testing.T) {
+	t.Setenv(config.ConvergenceModeEnvVar, "")
+	newFixture := func(mode string) (*config.Config, *dashboard.Server, *github.ActionableResult) {
+		cfg := &config.Config{
+			Project: config.ProjectConfig{
+				Org: "joshyorko", Repos: []string{"actions"},
+				IssueFilter: config.IssueFilterConfig{RequireLabels: []string{"hive-managed"}},
+			},
+			Convergence: config.ConvergenceConfig{Mode: mode},
+		}
+		logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+		srv := dashboard.NewServer(0, logger)
+		srv.RegisterAPI(&dashboard.Dependencies{Config: cfg})
+		candidate := github.Issue{Repo: "actions", Number: 147, State: "open", Labels: []string{"hive-managed"}, Body: "Parent: #82\nDepends on: #83\nRelated: #90"}
+		return cfg, srv, &github.ActionableResult{Issues: github.IssueResult{
+			Count:       2,
+			Items:       []github.Issue{candidate, {Repo: "actions", Number: 148, State: "open", Labels: []string{"hive-managed"}}},
+			SourceItems: []github.Issue{candidate, {Repo: "actions", Number: 83, State: "open"}, {Repo: "actions", Number: 148, State: "open", Labels: []string{"hive-managed"}}},
+		}}
+	}
+
+	shadowCfg, shadowSrv, shadowActionable := newFixture(config.ConvergenceModeShadow)
+	var shadowLog bytes.Buffer
+	applyConvergenceKickAdmission(shadowCfg, shadowSrv, shadowActionable, nil, slog.New(slog.NewTextHandler(&shadowLog, nil)))
+	if len(shadowActionable.Issues.Items) != 2 || !bytes.Contains(shadowLog.Bytes(), []byte("joshyorko/actions#83")) {
+		t.Fatalf("shadow result items=%+v log=%s, want raw dispatch plus source blocker", shadowActionable.Issues.Items, shadowLog.String())
+	}
+
+	enforceCfg, enforceSrv, enforceActionable := newFixture(config.ConvergenceModeEnforce)
+	var enforceLog bytes.Buffer
+	enforceActionable = applyConvergenceKickAdmission(enforceCfg, enforceSrv, enforceActionable, nil, slog.New(slog.NewTextHandler(&enforceLog, nil)))
+	if len(enforceActionable.Issues.Items) != 1 || enforceActionable.Issues.Items[0].Number != 148 {
+		t.Fatalf("enforce items = %+v, want only #148", enforceActionable.Issues.Items)
+	}
+	if !bytes.Contains(enforceLog.Bytes(), []byte("joshyorko/actions#83")) {
+		t.Fatalf("enforce log = %s, want same source blocker as shadow", enforceLog.String())
+	}
+}
