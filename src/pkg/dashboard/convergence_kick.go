@@ -63,8 +63,10 @@ func (s *Server) ConvergenceKickProjection(issues []ghpkg.Issue) (admitted []ghp
 // sweep's ledger-coverage report (#4263 soak telemetry needs the partial-
 // coverage fact per pass). Same single sweep, same observer, same evaluator —
 // the coverage is projected from the sweep that judged the candidates, so the
-// counts and the coverage cannot disagree about the state they saw.
-func (s *Server) ConvergenceKickProjectionDetailed(issues []ghpkg.Issue) (admitted []ghpkg.Issue, withheld []ConvergenceKickFinding, coverage AdmissionCoverage) {
+// counts and the coverage cannot disagree about the state they saw. The
+// optional source argument is the full issue snapshot from the same
+// enumeration; the variadic form preserves the existing call shape.
+func (s *Server) ConvergenceKickProjectionDetailed(issues []ghpkg.Issue, source ...[]ghpkg.Issue) (admitted []ghpkg.Issue, withheld []ConvergenceKickFinding, coverage AdmissionCoverage) {
 	admitted = make([]ghpkg.Issue, 0, len(issues))
 	coverage = AdmissionCoverage{Policy: admissionCoveragePolicy}
 	if s == nil || s.contributeHub == nil {
@@ -74,7 +76,7 @@ func (s *Server) ConvergenceKickProjectionDetailed(issues []ghpkg.Issue) (admitt
 	// One sweep for the whole pass — the same per-pass snapshot discipline the
 	// contributor paths use, so every candidate in this projection is judged
 	// against one consistent view of current ledger state.
-	sweep := hub.newAdmissionSweep()
+	sweep := hub.newAdmissionSweepWithSource(kickSourceSnapshot(hub, issues, source))
 	coverage = hub.admissionCoverageFromSweep(sweep)
 	for _, issue := range issues {
 		candidate := kickAdmissionCandidate(issue)
@@ -90,6 +92,43 @@ func (s *Server) ConvergenceKickProjectionDetailed(issues []ghpkg.Issue) (admitt
 		withheld = append(withheld, ConvergenceKickFinding{Issue: issue, Decision: decision})
 	}
 	return admitted, withheld, coverage
+}
+
+func kickSourceSnapshot(hub *ContributeWSHub, issues []ghpkg.Issue, source [][]ghpkg.Issue) worksource.DependencySnapshot {
+	snapshot := worksource.DependencySnapshot{
+		Authority:        hub.sourceAuthority(),
+		EnrollmentLabels: hub.sourceEnrollmentLabels(),
+	}
+	appendIssue := func(issue ghpkg.Issue) {
+		state := issue.State
+		if state == "" {
+			state = "open"
+		}
+		snapshot.Issues = append(snapshot.Issues, worksource.Issue{
+			SourceType: issue.SourceType,
+			Repo:       issue.Repo,
+			ExternalID: issue.ExternalID,
+			Number:     issue.Number,
+			Title:      issue.Title,
+			Author:     issue.Author,
+			Labels:     issue.Labels,
+			Assignees:  issue.Assignees,
+			State:      state,
+			Body:       issue.Body,
+			CreatedAt:  issue.CreatedAt,
+			UpdatedAt:  issue.UpdatedAt,
+			URL:        issue.URL,
+		})
+	}
+	for _, issue := range issues {
+		appendIssue(issue)
+	}
+	if len(source) > 0 {
+		for _, issue := range source[0] {
+			appendIssue(issue)
+		}
+	}
+	return snapshot
 }
 
 // kickAdmissionCandidate normalises one enumerated issue into the shared

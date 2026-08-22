@@ -86,7 +86,7 @@ func applyConvergenceKickAdmission(cfg *config.Config, dashSrv *dashboard.Server
 
 	enforced := mode == config.ConvergenceModeEnforce
 	started := time.Now()
-	admitted, withheld, coverage := dashSrv.ConvergenceKickProjectionDetailed(actionable.Issues.Items)
+	admitted, withheld, coverage := dashSrv.ConvergenceKickProjectionDetailed(actionable.Issues.Items, actionable.Issues.SourceItems)
 	latency := time.Since(started)
 
 	blocked, unknown := 0, 0

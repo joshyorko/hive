@@ -1094,11 +1094,15 @@ func buildRepos(cfg *config.Config, actionable *github.ActionableResult) []Front
 	repos := make([]FrontendRepo, 0, len(cfg.Project.Repos))
 
 	issuesByRepo := make(map[string][]any)
+	sourceIssuesByRepo := make(map[string][]any)
 	prsByRepo := make(map[string][]any)
 
 	if actionable != nil {
 		for _, issue := range actionable.Issues.Items {
 			issuesByRepo[issue.Repo] = append(issuesByRepo[issue.Repo], issue)
+		}
+		for _, issue := range actionable.Issues.SourceItems {
+			sourceIssuesByRepo[issue.Repo] = append(sourceIssuesByRepo[issue.Repo], issue)
 		}
 		for _, pr := range actionable.PRs.Items {
 			prsByRepo[pr.Repo] = append(prsByRepo[pr.Repo], pr)
@@ -1131,6 +1135,7 @@ func buildRepos(cfg *config.Config, actionable *github.ActionableResult) []Front
 			Issues:           issueCount,
 			PRs:              prCount,
 			ActionableIssues: issuesByRepo[repoName],
+			SourceIssues:     sourceIssuesByRepo[repoName],
 			OpenPrs:          prsByRepo[repoName],
 		}
 		if r.ActionableIssues == nil {
