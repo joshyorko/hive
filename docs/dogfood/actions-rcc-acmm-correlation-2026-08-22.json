@@ -1,0 +1,457 @@
+{
+  "generated_at": "2026-08-22T17:05:00-04:00",
+  "upstream_v4_start": "18e8172b98be5663c95b3edd7da0fce068220313",
+  "scope": [
+    "joshyorko/actions",
+    "joshyorko/rcc"
+  ],
+  "source": {
+    "current_inventory": "ghx issue list --state open --label acmm,ai-fix-requested",
+    "prior_disposition_receipt": "docs/dogfood/acmm-reconciliation-2026-08-22.md"
+  },
+  "summary": {
+    "actions_open": 23,
+    "rcc_open": 25,
+    "total_open": 48,
+    "existing_or_adopted_pr_coverage": 0,
+    "human_policy_decisions": 0,
+    "evaluator_gap_candidates": 13,
+    "still_failing_candidates": 35,
+    "duplicate_open_issues": 0
+  },
+  "grouping_note": "Group identifiers are shared criterion families so mirrored Actions/RCC findings remain correlated without forcing a one-issue-per-PR model.",
+  "issues": [
+    {
+      "repo": "actions",
+      "number": 156,
+      "title": "[ACMM L5] Add GitHub Actions AI integration",
+      "criterion": "acmm:github-actions-ai",
+      "bucket": "evaluator_gap",
+      "group": "github-actions-ai",
+      "reason": "Current receipt classified this criterion as evaluator-gap work; no live adopted PR currently covers it."
+    },
+    {
+      "repo": "actions",
+      "number": 159,
+      "title": "[ACMM L0] Add E2E tests",
+      "criterion": "acmm:prereq-e2e",
+      "bucket": "genuine_remaining_repository_remediation",
+      "group": "e2e-tests",
+      "reason": "Current receipt classified this criterion as still failing."
+    },
+    {
+      "repo": "actions",
+      "number": 160,
+      "title": "[ACMM L0] Add Test suite",
+      "criterion": "acmm:prereq-test-suite",
+      "bucket": "genuine_remaining_repository_remediation",
+      "group": "test-suite",
+      "reason": "Current receipt classified this criterion as still failing."
+    },
+    {
+      "repo": "actions",
+      "number": 161,
+      "title": "[ACMM L0] Add Code style config",
+      "criterion": "acmm:prereq-code-style",
+      "bucket": "genuine_remaining_repository_remediation",
+      "group": "code-style",
+      "reason": "Current receipt classified this criterion as still failing."
+    },
+    {
+      "repo": "actions",
+      "number": 162,
+      "title": "[ACMM L0] Add Coverage gate",
+      "criterion": "acmm:prereq-coverage-gate",
+      "bucket": "genuine_remaining_repository_remediation",
+      "group": "coverage-gate",
+      "reason": "Current receipt classified this criterion as still failing."
+    },
+    {
+      "repo": "actions",
+      "number": 163,
+      "title": "[ACMM L2] Add Cursor rules",
+      "criterion": "acmm:cursor-rules",
+      "bucket": "evaluator_gap",
+      "group": "cursor-rules",
+      "reason": "Current receipt classified this criterion as evaluator-gap work."
+    },
+    {
+      "repo": "actions",
+      "number": 164,
+      "title": "[ACMM L2] Add Prompts catalog",
+      "criterion": "acmm:prompts-catalog",
+      "bucket": "genuine_remaining_repository_remediation",
+      "group": "prompts-catalog",
+      "reason": "Current receipt classified this criterion as still failing."
+    },
+    {
+      "repo": "actions",
+      "number": 166,
+      "title": "[ACMM L2] Add Simple skills",
+      "criterion": "acmm:simple-skills",
+      "bucket": "genuine_remaining_repository_remediation",
+      "group": "simple-skills",
+      "reason": "Current receipt classified this criterion as still failing."
+    },
+    {
+      "repo": "actions",
+      "number": 167,
+      "title": "[ACMM L2] Add Correction capture",
+      "criterion": "acmm:correction-capture",
+      "bucket": "genuine_remaining_repository_remediation",
+      "group": "correction-capture",
+      "reason": "Current receipt classified this criterion as still failing."
+    },
+    {
+      "repo": "actions",
+      "number": 168,
+      "title": "[ACMM L5] Add Auto-QA with self-tuning",
+      "criterion": "acmm:auto-qa-self-tuning",
+      "bucket": "genuine_remaining_repository_remediation",
+      "group": "auto-qa-self-tuning",
+      "reason": "Current receipt classified this criterion as still failing."
+    },
+    {
+      "repo": "actions",
+      "number": 169,
+      "title": "[ACMM L5] Add Public metrics",
+      "criterion": "acmm:public-metrics",
+      "bucket": "genuine_remaining_repository_remediation",
+      "group": "public-metrics",
+      "reason": "Current receipt classified this criterion as still failing."
+    },
+    {
+      "repo": "actions",
+      "number": 170,
+      "title": "[ACMM L5] Add Policy-as-code",
+      "criterion": "acmm:policy-as-code",
+      "bucket": "genuine_remaining_repository_remediation",
+      "group": "policy-as-code",
+      "reason": "Current receipt classified this criterion as still failing."
+    },
+    {
+      "repo": "actions",
+      "number": 171,
+      "title": "[ACMM L5] Add Reflection log",
+      "criterion": "acmm:reflection-log",
+      "bucket": "genuine_remaining_repository_remediation",
+      "group": "reflection-log",
+      "reason": "Current receipt classified this criterion as still failing."
+    },
+    {
+      "repo": "actions",
+      "number": 173,
+      "title": "[ACMM L6] Add Auto issue generation",
+      "criterion": "acmm:auto-issue-gen",
+      "bucket": "genuine_remaining_repository_remediation",
+      "group": "auto-issue-generation",
+      "reason": "Current receipt classified this criterion as still failing."
+    },
+    {
+      "repo": "actions",
+      "number": 174,
+      "title": "[ACMM L6] Add Multi-agent orchestration",
+      "criterion": "acmm:multi-agent-orchestration",
+      "bucket": "genuine_remaining_repository_remediation",
+      "group": "multi-agent-orchestration",
+      "reason": "Current receipt classified this criterion as still failing."
+    },
+    {
+      "repo": "actions",
+      "number": 175,
+      "title": "[ACMM L6] Add Strategic dashboard",
+      "criterion": "acmm:strategic-dashboard",
+      "bucket": "genuine_remaining_repository_remediation",
+      "group": "strategic-dashboard",
+      "reason": "Current receipt classified this criterion as still failing."
+    },
+    {
+      "repo": "actions",
+      "number": 176,
+      "title": "[ACMM L6] Add Merge queue",
+      "criterion": "acmm:merge-queue",
+      "bucket": "genuine_remaining_repository_remediation",
+      "group": "merge-queue",
+      "reason": "Current receipt classified this criterion as still failing."
+    },
+    {
+      "repo": "actions",
+      "number": 177,
+      "title": "[ACMM L6] Add Risk assessment config",
+      "criterion": "acmm:risk-assessment-config",
+      "bucket": "genuine_remaining_repository_remediation",
+      "group": "risk-assessment-config",
+      "reason": "Current receipt classified this criterion as still failing."
+    },
+    {
+      "repo": "actions",
+      "number": 179,
+      "title": "[ACMM L6] Add Task traceability",
+      "criterion": "aef:task-traceability",
+      "bucket": "genuine_remaining_repository_remediation",
+      "group": "task-traceability",
+      "reason": "Current receipt classified this criterion as still failing."
+    },
+    {
+      "repo": "actions",
+      "number": 186,
+      "title": "[ACMM L3] Add CI test matrix",
+      "criterion": "acmm:ci-matrix",
+      "bucket": "genuine_remaining_repository_remediation",
+      "group": "ci-matrix",
+      "reason": "Current receipt classified this criterion as still failing."
+    },
+    {
+      "repo": "actions",
+      "number": 187,
+      "title": "[ACMM L3] Add Mechanical enforcement",
+      "criterion": "acmm:mechanical-enforcement",
+      "bucket": "evaluator_gap",
+      "group": "mechanical-enforcement",
+      "reason": "Current receipt classified this criterion as evaluator-gap work."
+    },
+    {
+      "repo": "actions",
+      "number": 188,
+      "title": "[ACMM L3] Add Session summary artifact",
+      "criterion": "acmm:session-summary",
+      "bucket": "evaluator_gap",
+      "group": "session-summary",
+      "reason": "Current receipt classified this criterion as evaluator-gap work."
+    },
+    {
+      "repo": "actions",
+      "number": 189,
+      "title": "[ACMM L3] Add Structural gates",
+      "criterion": "acmm:structural-gates",
+      "bucket": "evaluator_gap",
+      "group": "structural-gates",
+      "reason": "Current receipt classified this criterion as evaluator-gap work."
+    },
+    {
+      "repo": "rcc",
+      "number": 136,
+      "title": "[ACMM L0] Add E2E tests",
+      "criterion": "acmm:prereq-e2e",
+      "bucket": "genuine_remaining_repository_remediation",
+      "group": "e2e-tests",
+      "reason": "Current receipt classified this criterion as still failing."
+    },
+    {
+      "repo": "rcc",
+      "number": 139,
+      "title": "[ACMM L2] Add CLAUDE.md instruction file",
+      "criterion": "acmm:claude-md",
+      "bucket": "evaluator_gap",
+      "group": "claude-md",
+      "reason": "Current receipt classified this criterion as evaluator-gap work."
+    },
+    {
+      "repo": "rcc",
+      "number": 140,
+      "title": "[ACMM L2] Add Copilot instructions",
+      "criterion": "acmm:copilot-instructions",
+      "bucket": "evaluator_gap",
+      "group": "copilot-instructions",
+      "reason": "Current receipt classified this criterion as evaluator-gap work."
+    },
+    {
+      "repo": "rcc",
+      "number": 141,
+      "title": "[ACMM L2] Add Cursor rules",
+      "criterion": "acmm:cursor-rules",
+      "bucket": "evaluator_gap",
+      "group": "cursor-rules",
+      "reason": "Current receipt classified this criterion as evaluator-gap work."
+    },
+    {
+      "repo": "rcc",
+      "number": 142,
+      "title": "[ACMM L2] Add Prompts catalog",
+      "criterion": "acmm:prompts-catalog",
+      "bucket": "genuine_remaining_repository_remediation",
+      "group": "prompts-catalog",
+      "reason": "Current receipt classified this criterion as still failing."
+    },
+    {
+      "repo": "rcc",
+      "number": 144,
+      "title": "[ACMM L2] Add Simple skills",
+      "criterion": "acmm:simple-skills",
+      "bucket": "genuine_remaining_repository_remediation",
+      "group": "simple-skills",
+      "reason": "Current receipt classified this criterion as still failing."
+    },
+    {
+      "repo": "rcc",
+      "number": 145,
+      "title": "[ACMM L2] Add Correction capture",
+      "criterion": "acmm:correction-capture",
+      "bucket": "genuine_remaining_repository_remediation",
+      "group": "correction-capture",
+      "reason": "Current receipt classified this criterion as still failing."
+    },
+    {
+      "repo": "rcc",
+      "number": 147,
+      "title": "[ACMM L3] Add PR review rubric",
+      "criterion": "acmm:pr-review-rubric",
+      "bucket": "genuine_remaining_repository_remediation",
+      "group": "pr-review-rubric",
+      "reason": "Current receipt classified this criterion as still failing."
+    },
+    {
+      "repo": "rcc",
+      "number": 149,
+      "title": "[ACMM L3] Add CI test matrix",
+      "criterion": "acmm:ci-matrix",
+      "bucket": "genuine_remaining_repository_remediation",
+      "group": "ci-matrix",
+      "reason": "Current receipt classified this criterion as still failing."
+    },
+    {
+      "repo": "rcc",
+      "number": 150,
+      "title": "[ACMM L3] Add Layered safety model",
+      "criterion": "acmm:layered-safety",
+      "bucket": "evaluator_gap",
+      "group": "layered-safety",
+      "reason": "Current receipt classified this criterion as evaluator-gap work."
+    },
+    {
+      "repo": "rcc",
+      "number": 151,
+      "title": "[ACMM L3] Add Mechanical enforcement",
+      "criterion": "acmm:mechanical-enforcement",
+      "bucket": "evaluator_gap",
+      "group": "mechanical-enforcement",
+      "reason": "Current receipt classified this criterion as evaluator-gap work."
+    },
+    {
+      "repo": "rcc",
+      "number": 152,
+      "title": "[ACMM L3] Add Session summary artifact",
+      "criterion": "acmm:session-summary",
+      "bucket": "evaluator_gap",
+      "group": "session-summary",
+      "reason": "Current receipt classified this criterion as evaluator-gap work."
+    },
+    {
+      "repo": "rcc",
+      "number": 153,
+      "title": "[ACMM L3] Add Structural gates",
+      "criterion": "acmm:structural-gates",
+      "bucket": "evaluator_gap",
+      "group": "structural-gates",
+      "reason": "Current receipt classified this criterion as evaluator-gap work."
+    },
+    {
+      "repo": "rcc",
+      "number": 154,
+      "title": "[ACMM L5] Add GitHub Actions AI integration",
+      "criterion": "acmm:github-actions-ai",
+      "bucket": "evaluator_gap",
+      "group": "github-actions-ai",
+      "reason": "Current receipt classified this criterion as evaluator-gap work."
+    },
+    {
+      "repo": "rcc",
+      "number": 155,
+      "title": "[ACMM L5] Add Auto-QA with self-tuning",
+      "criterion": "acmm:auto-qa-self-tuning",
+      "bucket": "genuine_remaining_repository_remediation",
+      "group": "auto-qa-self-tuning",
+      "reason": "Current receipt classified this criterion as still failing."
+    },
+    {
+      "repo": "rcc",
+      "number": 157,
+      "title": "[ACMM L5] Add Policy-as-code",
+      "criterion": "acmm:policy-as-code",
+      "bucket": "genuine_remaining_repository_remediation",
+      "group": "policy-as-code",
+      "reason": "Current receipt classified this criterion as still failing."
+    },
+    {
+      "repo": "rcc",
+      "number": 158,
+      "title": "[ACMM L5] Add Reflection log",
+      "criterion": "acmm:reflection-log",
+      "bucket": "genuine_remaining_repository_remediation",
+      "group": "reflection-log",
+      "reason": "Current receipt classified this criterion as still failing."
+    },
+    {
+      "repo": "rcc",
+      "number": 159,
+      "title": "[ACMM L6] Add Auto issue generation",
+      "criterion": "acmm:auto-issue-gen",
+      "bucket": "genuine_remaining_repository_remediation",
+      "group": "auto-issue-generation",
+      "reason": "Current receipt classified this criterion as still failing."
+    },
+    {
+      "repo": "rcc",
+      "number": 160,
+      "title": "[ACMM L6] Add Multi-agent orchestration",
+      "criterion": "acmm:multi-agent-orchestration",
+      "bucket": "genuine_remaining_repository_remediation",
+      "group": "multi-agent-orchestration",
+      "reason": "Current receipt classified this criterion as still failing."
+    },
+    {
+      "repo": "rcc",
+      "number": 161,
+      "title": "[ACMM L6] Add Strategic dashboard",
+      "criterion": "acmm:strategic-dashboard",
+      "bucket": "genuine_remaining_repository_remediation",
+      "group": "strategic-dashboard",
+      "reason": "Current receipt classified this criterion as still failing."
+    },
+    {
+      "repo": "rcc",
+      "number": 162,
+      "title": "[ACMM L6] Add Merge queue",
+      "criterion": "acmm:merge-queue",
+      "bucket": "genuine_remaining_repository_remediation",
+      "group": "merge-queue",
+      "reason": "Current receipt classified this criterion as still failing."
+    },
+    {
+      "repo": "rcc",
+      "number": 163,
+      "title": "[ACMM L6] Add Risk assessment config",
+      "criterion": "acmm:risk-assessment-config",
+      "bucket": "genuine_remaining_repository_remediation",
+      "group": "risk-assessment-config",
+      "reason": "Current receipt classified this criterion as still failing."
+    },
+    {
+      "repo": "rcc",
+      "number": 165,
+      "title": "[ACMM L6] Add Task traceability",
+      "criterion": "aef:task-traceability",
+      "bucket": "genuine_remaining_repository_remediation",
+      "group": "task-traceability",
+      "reason": "Current receipt classified this criterion as still failing."
+    },
+    {
+      "repo": "rcc",
+      "number": 166,
+      "title": "[ACMM L6] Add Audit trail workflow",
+      "criterion": "aef:audit-trail",
+      "bucket": "genuine_remaining_repository_remediation",
+      "group": "audit-trail",
+      "reason": "Current receipt classified this criterion as still failing."
+    },
+    {
+      "repo": "rcc",
+      "number": 167,
+      "title": "[ACMM L6] Add Change classification",
+      "criterion": "aef:change-classification",
+      "bucket": "genuine_remaining_repository_remediation",
+      "group": "change-classification",
+      "reason": "Current receipt classified this criterion as still failing."
+    }
+  ]
+}

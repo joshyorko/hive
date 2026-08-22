@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -8,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	ghpkg "github.com/kubestellar/hive/pkg/github"
 )
@@ -21,12 +23,13 @@ type acmmIssueFixture struct {
 }
 
 type acmmMutationFixture struct {
-	mu       sync.Mutex
-	issues   []acmmIssueFixture
-	created  int
-	edits    []map[string]any
-	comments []map[string]any
-	paths    map[string]bool
+	mu               sync.Mutex
+	issues           []acmmIssueFixture
+	created          int
+	edits            []map[string]any
+	comments         []map[string]any
+	paths            map[string]bool
+	freshEvaluations int
 }
 
 func (f *acmmMutationFixture) server(t *testing.T) *httptest.Server {
@@ -36,6 +39,9 @@ func (f *acmmMutationFixture) server(t *testing.T) *httptest.Server {
 		jsonResponse(w, map[string]any{"default_branch": "main"})
 	})
 	mux.HandleFunc("/repos/myorg/repo1/commits/HEAD", func(w http.ResponseWriter, r *http.Request) {
+		f.mu.Lock()
+		f.freshEvaluations++
+		f.mu.Unlock()
 		jsonResponse(w, map[string]any{"sha": "fresh-sha"})
 	})
 	mux.HandleFunc("/repos/myorg/repo1/labels", func(w http.ResponseWriter, r *http.Request) {
@@ -113,6 +119,46 @@ func (f *acmmMutationFixture) server(t *testing.T) *httptest.Server {
 	ts := httptest.NewServer(mux)
 	t.Cleanup(ts.Close)
 	return ts
+}
+
+func TestAutomaticACMMReconciliationIsLevelTriggeredAndCadenceBounded(t *testing.T) {
+	f := &acmmMutationFixture{
+		paths:  map[string]bool{"CLAUDE.md": true},
+		issues: []acmmIssueFixture{{Number: 40, Title: "satisfied", Body: legacyACMMBody("acmm:claude-md"), State: "open"}},
+	}
+	s := acmmTestServer(t, f)
+	now := time.Date(2026, 8, 22, 12, 0, 0, 0, time.UTC)
+
+	ran, result := s.ReconcileACMMAutomatically(context.Background(), now)
+	if !ran || len(result.Repos) != 1 || len(f.edits) != 1 {
+		t.Fatalf("first run=(ran=%v repos=%d edits=%d), want one applied reconciliation", ran, len(result.Repos), len(f.edits))
+	}
+	f.mu.Lock()
+	firstEvaluations := f.freshEvaluations
+	f.mu.Unlock()
+
+	ran, _ = s.ReconcileACMMAutomatically(context.Background(), now.Add(acmmAutomaticReconcileInterval-time.Second))
+	if ran {
+		t.Fatal("reconciliation ran again before its cadence elapsed")
+	}
+	f.mu.Lock()
+	if f.freshEvaluations != firstEvaluations {
+		t.Fatalf("cadence skip performed fresh evaluation: got %d want %d", f.freshEvaluations, firstEvaluations)
+	}
+	f.mu.Unlock()
+
+	ran, _ = s.ReconcileACMMAutomatically(context.Background(), now.Add(acmmAutomaticReconcileInterval))
+	if !ran {
+		t.Fatal("reconciliation did not run when cadence elapsed")
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.freshEvaluations <= firstEvaluations {
+		t.Fatalf("due run did not reacquire fresh evidence: got %d, first run %d", f.freshEvaluations, firstEvaluations)
+	}
+	if len(f.edits) != 1 {
+		t.Fatalf("idempotent due run added mutations: edits=%d want 1", len(f.edits))
+	}
 }
 
 func acmmTestServer(t *testing.T, f *acmmMutationFixture) *Server {

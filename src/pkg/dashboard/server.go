@@ -90,6 +90,9 @@ type Server struct {
 	acmmEvalCache    *ACMMEvaluation
 	acmmEvalCachedAt time.Time
 	acmmMutationMu   sync.Mutex // serializes criterion create/reconcile lookup+mutation
+	continuityMu     sync.Mutex // serializes observe+adopt/reacquire/revoke transactions
+	acmmAutomaticMu  sync.Mutex
+	acmmAutomaticAt  time.Time
 
 	// Sparkline histories, all backed by the generic timeSeries ring buffer
 	// (see timeseries.go). Lazily constructed via the tokenSeries()/factSeries()

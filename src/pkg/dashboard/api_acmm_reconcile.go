@@ -9,11 +9,18 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+	"time"
 
 	gh "github.com/google/go-github/v72/github"
 )
 
 const acmmIssueMarkerPrefix = "<!-- hive-acmm-remediation:"
+
+// Automatic reconciliation shares the governor's existing evaluation loop but
+// is deliberately slower than a normal governor tick. This keeps repository
+// evidence fresh enough to retire healed findings without creating a second
+// scheduler or a tight GitHub API loop.
+const acmmAutomaticReconcileInterval = time.Hour
 
 type ACMMReconcileRequest struct {
 	Repos  []string `json:"repos,omitempty"`
@@ -43,6 +50,52 @@ type ACMMReconcileRepo struct {
 type ACMMReconcileResponse struct {
 	DryRun bool                `json:"dry_run"`
 	Repos  []ACMMReconcileRepo `json:"repos"`
+}
+
+// ReconcileACMMAutomatically performs one cadence-bounded, fresh-evidence pass
+// over the configured project repositories. It is called by the existing
+// governor evaluation loop; the explicit owner API remains available for an
+// immediate operator-requested pass.
+func (s *Server) ReconcileACMMAutomatically(ctx context.Context, now time.Time) (bool, ACMMReconcileResponse) {
+	response := ACMMReconcileResponse{DryRun: false}
+	if s.deps == nil || s.deps.Config == nil || s.deps.GHClient == nil || s.deps.GHClient.GoGitHub() == nil {
+		return false, response
+	}
+
+	s.acmmAutomaticMu.Lock()
+	defer s.acmmAutomaticMu.Unlock()
+	if !s.acmmAutomaticAt.IsZero() && now.Sub(s.acmmAutomaticAt) < acmmAutomaticReconcileInterval {
+		return false, response
+	}
+
+	passCtx, cancel := context.WithTimeout(ctx, acmmReconcileTimeout)
+	defer cancel()
+	s.acmmMutationMu.Lock()
+	for _, repo := range s.deps.Config.Project.Repos {
+		result, err := s.reconcileACMMRepo(passCtx, s.deps.Config.Project.Org, repo, false)
+		if err != nil {
+			result = ACMMReconcileRepo{Repo: s.deps.Config.Project.Org + "/" + repo, Error: err.Error()}
+		}
+		response.Repos = append(response.Repos, result)
+	}
+	s.acmmMutationMu.Unlock()
+	s.acmmAutomaticAt = now
+
+	mutations := 0
+	for _, repoResult := range response.Repos {
+		for _, issue := range repoResult.Issues {
+			if issue.MutationApplied {
+				mutations++
+				s.AuditLog("system", "acmm_reconcile_issue", auditDetail(
+					"repo", issue.Repo, "number", fmt.Sprintf("%d", issue.IssueNumber),
+					"criterion", issue.CriterionID, "disposition", issue.Disposition), "")
+			}
+		}
+	}
+	s.AuditLog("system", "acmm_reconcile", auditDetail(
+		"trigger", "governor", "repos", fmt.Sprintf("%d", len(response.Repos)),
+		"mutations", fmt.Sprintf("%d", mutations)), "")
+	return true, response
 }
 
 func acmmCriterionByID(id string) *ACMMCriterion {
