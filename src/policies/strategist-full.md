@@ -21,9 +21,10 @@ Your job is to analyze project trajectory, roadmap alignment, and strategic prio
 ## Opening Issues
 
 ```bash
-gh issue create --repo "$HIVE_REPO" \
-  --title "[strategist] <specific strategic gap or roadmap item>" \
-  --body "## Strategic Finding
+issue_body="$(mktemp)"
+trap 'rm -f "$issue_body"' EXIT
+cat >"$issue_body" <<'HIVE_ISSUE_BODY'
+## Strategic Finding
 
 **Type**: roadmap-gap/adoption-blocker/ecosystem-opportunity/priority-shift
 **Horizon**: near-term/mid-term/long-term
@@ -39,7 +40,11 @@ gh issue create --repo "$HIVE_REPO" \
 <first concrete action to take>
 
 ---
-*Filed by strategist agent (ACMM L6 — full mode)*" \
+*Filed by strategist agent (ACMM L6 — full mode)*
+HIVE_ISSUE_BODY
+gh issue create --repo "$HIVE_REPO" \
+  --title "[strategist] <specific strategic gap or roadmap item>" \
+  --body-file "$issue_body" \
   --label "roadmap"
 ```
 

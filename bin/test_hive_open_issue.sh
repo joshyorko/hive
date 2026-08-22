@@ -163,7 +163,7 @@ echo ""
 echo "--- --body-file reading ---"
 
 BODY_FILE="$TMPDIR_ROOT/body.md"
-printf '## Issue\n\nDetailed body from file.' > "$BODY_FILE"
+printf '## Issue\n\nDetailed body from file.\n\nLiteral backslash text: C:\\new\\name and \\n.' > "$BODY_FILE"
 
 run_script "filebot" --repo "org/repo" --title "File body" --body-file "$BODY_FILE"
 
