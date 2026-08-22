@@ -351,6 +351,56 @@ change. Security-sensitive details stay in the local private packet.
   soak; no public issue filed during commissioning.
 - **Disposition:** DOGFOOD / DESIGN FINDING needing upstream grammar decision.
 
+### Internal kicks used non-canonical repository identities
+
+- **Observed behavior:** Contributor admission evaluated the accepted planning
+  graph as 12 admitted and 24 blocked, while the live internal-kick projection
+  remained at the explicit-only 17 admitted and 19 blocked frontier.
+- **Expected behavior:** Contributor queueing, selection, and internal kicks
+  must compose the same authoritative dependencies over the same canonical
+  worksource identities.
+- **Minimal reproduction:** Store `actions#134` and `rcc#120` in the
+  production-shaped last-actionable snapshot while the accepted planning edge
+  is `joshyorko/actions#134 <- joshyorko/rcc#120`, then project an internal kick.
+- **Affected source/functions:** `kickSourceSnapshot` and
+  `kickAdmissionCandidate` in `pkg/dashboard/convergence_kick.go`.
+- **Impact:** Internal enforcement could dispatch work withheld by the approved
+  planning graph even though contributor admission correctly blocked it.
+- **Reproduced more than once:** Yes, in the live 17/19 projection and a focused
+  production-shaped regression test.
+- **Tests/evidence:** RED/GREEN
+  `TestPlanningAdoption_ComposesWithQueueSelectionAndKickProjection`; the
+  adapter now resolves persisted short names through configured repository
+  authority before observation.
+- **Likely severity:** High admission correctness for adopted graphs.
+- **Duplicate search:** Not applicable to upstream v4 yet; the affected
+  planning/adoption integration is local and unpushed.
+- **Disposition:** DOGFOOD / DESIGN FINDING; fixed locally before relaunch.
+
+### Root-run adoption command created an unreadable outcome ledger
+
+- **Observed behavior:** Running the one-shot adoption command as root created
+  `/data/outcomes.json` with ownership that prevented the normal Hive runtime
+  UID from opening it on startup.
+- **Expected behavior:** Operator-owned one-shot commands that write shared
+  durable state must preserve the runtime service account's read/write access.
+- **Minimal reproduction:** Remove the absent ledger in a disposable data
+  directory, run `hive-adopt` as root, then start Hive as its configured
+  non-root UID and open the created ledger.
+- **Affected source/functions:** `cmd/hive-adopt` outcome-ledger creation and
+  the shared `/data` ownership contract.
+- **Impact:** Initial post-adoption startup failure until file ownership is
+  repaired; durable graph contents were not lost.
+- **Reproduced more than once:** No.
+- **Tests/evidence:** Startup permission failure and the created file's
+  ownership were captured during deployment; normal runtime access succeeded
+  after restoring the service ownership contract.
+- **Likely severity:** Medium operational reliability for the local adoption
+  vertical.
+- **Duplicate search:** Not applicable to upstream v4 yet; `hive-adopt` is a
+  local, unpushed command.
+- **Disposition:** DOGFOOD / DESIGN FINDING; retain for adoption hardening.
+
 - **Filed publicly:** None.
 - **Prepared but not filed:** Optional MCP login warning false-pauses healthy
   Codex agents (pending concise issue body after stable first cycle).
