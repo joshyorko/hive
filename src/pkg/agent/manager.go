@@ -4016,11 +4016,16 @@ func (m *Manager) deliverKickLocked(agent *AgentProcess, message, trigger string
 	// (#4296). Must be the first thing this function does.
 	m.rotateKickLogOnKickLocked(agent)
 
-	// Clear stale input before kick (Ctrl+C then Ctrl+U).
-	// Goose 1.37 exits on ^C — skip clear for goose backend.
-	if agent.Config.Backend != "goose" && agent.BackendOverride != "goose" {
+	// Clear stale input before kick (Ctrl+C then Ctrl+U). Goose 1.37 and Codex
+	// exit to the shell on ^C at an idle prompt, so never send the interrupt to
+	// those backends: the Markdown kick that follows would otherwise execute as
+	// shell input. Ctrl+U still clears a partially typed Codex input safely.
+	backend := effectiveBackend(agent)
+	if backend != "goose" && backend != codexBackend {
 		m.tmuxSendKeysForAgent(agent, "C-c")
 		time.Sleep(staleCheckDelay)
+	}
+	if backend != "goose" {
 		m.tmuxSendKeysForAgent(agent, "C-u")
 		time.Sleep(staleCheckDelay)
 	}

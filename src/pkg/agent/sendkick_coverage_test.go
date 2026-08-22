@@ -1,10 +1,37 @@
 package agent
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/kubestellar/hive/pkg/config"
 )
+
+// TestDeliverKickLocked_CodexNeverReceivesInterrupt catches the production
+// failure where the idle Codex TUI treats Ctrl-C as exit, leaving Bash to
+// execute the Markdown kick that follows. Ctrl-U remains safe for clearing a
+// partially typed input line; Ctrl-C must never be part of Codex kick delivery.
+func TestDeliverKickLocked_CodexNeverReceivesInterrupt(t *testing.T) {
+	m := NewManager(map[string]config.AgentConfig{
+		"worker": {Backend: codexBackend},
+	}, discardLogger(), ProjectContext{})
+
+	var keys []string
+	m.sendKeysForAgent = func(_ *AgentProcess, sent ...string) {
+		keys = append(keys, sent...)
+	}
+
+	m.mu.Lock()
+	m.deliverKickLocked(m.agents["worker"], "`touch /tmp/must-not-run`", "test")
+	m.mu.Unlock()
+
+	if slices.Contains(keys, "C-c") {
+		t.Fatalf("Codex kick delivery sent Ctrl-C and can exit into Bash: keys=%q", keys)
+	}
+	if !slices.Contains(keys, "C-u") {
+		t.Fatalf("Codex kick delivery did not clear stale input with Ctrl-U: keys=%q", keys)
+	}
+}
 
 // TestSendKick_DeliversToReadyPane covers SendKick's full success path
 // (crash/consent check -> waitForInputPromptForAgent -> deliverKickLocked)
