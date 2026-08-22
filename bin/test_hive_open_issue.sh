@@ -220,7 +220,28 @@ fi
 rm -rf "$REQ_DIR"
 mkdir -p "$REQ_DIR"
 
-# --- Section 6: HIVE_AGENT default fallback ---
+# --- Section 6: Security disclosure classification ---
+echo ""
+echo "--- Security disclosure classification ---"
+
+run_script "scanner" --repo "org/repo" --title "Private finding" --body "sensitive" \
+  --sensitivity security --finding-ref finding-123
+
+REQ_FILE="$(find_req scanner)"
+if [ -n "$REQ_FILE" ]; then
+  GOT_SENSITIVITY="$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(d['sensitivity'])" "$REQ_FILE")"
+  check "security sensitivity is serialized" "security" "$GOT_SENSITIVITY"
+  GOT_FINDING_REF="$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(d['finding_ref'])" "$REQ_FILE")"
+  check "durable finding identity is serialized" "finding-123" "$GOT_FINDING_REF"
+else
+  echo "  FAIL: request file not created for security classification test"
+  FAIL=$((FAIL + 2))
+fi
+
+rm -rf "$REQ_DIR"
+mkdir -p "$REQ_DIR"
+
+# --- Section 7: HIVE_AGENT default fallback ---
 echo ""
 echo "--- HIVE_AGENT default ---"
 
@@ -239,7 +260,7 @@ fi
 rm -rf "$REQ_DIR"
 mkdir -p "$REQ_DIR"
 
-# --- Section 7: Atomic write (temp file replaced) ---
+# --- Section 8: Atomic write (temp file replaced) ---
 echo ""
 echo "--- Atomic write ---"
 
@@ -257,7 +278,7 @@ fi
 
 rm -rf "$REQ_DIR"
 
-# --- Section 8: REQ_DIR created if missing ---
+# --- Section 9: REQ_DIR created if missing ---
 echo ""
 echo "--- REQ_DIR auto-creation ---"
 

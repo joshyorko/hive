@@ -62,11 +62,16 @@ const issueRequestMaxAge = 24 * time.Hour
 type IssueRequest struct {
 	Kind   string   `json:"kind,omitempty"` // "issue" (default) | "comment"
 	Repo   string   `json:"repo"`
-	Title  string   `json:"title,omitempty"`  // issue only
+	Title  string   `json:"title,omitempty"` // issue only
 	Body   string   `json:"body,omitempty"`
 	Labels []string `json:"labels,omitempty"` // issue only
 	Number int      `json:"number,omitempty"` // comment only: issue/PR number
 	Agent  string   `json:"agent,omitempty"`
+	// Sensitivity is "security" for a private security finding and "normal"
+	// for an ordinary scanner finding. FindingRef is the durable bead ID whose
+	// classification the server authorizes before any public mutation.
+	Sensitivity string `json:"sensitivity,omitempty"`
+	FindingRef  string `json:"finding_ref,omitempty"`
 }
 
 // IssueResponse is written next to a consumed request as <name>.result.json.
@@ -83,7 +88,7 @@ type IssueResponse struct {
 // agent name, the request-file owning UID, and the request kind ("issue" or
 // "comment"), and returns nil to authorize. A nil authorizer denies everything
 // (fail closed).
-type IssueRequestAuthorizer func(agent string, fileUID int, kind string) error
+type IssueRequestAuthorizer func(agent string, fileUID int, kind, sensitivity, findingRef string) error
 
 // issueRetryState tracks in-memory backoff per request path. Reset on pod
 // restart — acceptable: a restart retries everything once, then backs off again.
@@ -250,7 +255,7 @@ func (c *Client) handleOneIssueRequest(ctx context.Context, path string, nowFn f
 		c.denyIssueRequest(path, req, "no authorizer configured (fail closed)", nowFn)
 		return
 	}
-	if err := c.issueAuthz(req.Agent, fileUID, kind); err != nil {
+	if err := c.issueAuthz(req.Agent, fileUID, kind, req.Sensitivity, req.FindingRef); err != nil {
 		c.denyIssueRequest(path, req, err.Error(), nowFn)
 		return
 	}

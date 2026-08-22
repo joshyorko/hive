@@ -66,7 +66,7 @@ func newIssueMockServer(t *testing.T, existingTitle string, created *int, failCr
 func issueTestClient(t *testing.T, srvURL string) *Client {
 	t.Helper()
 	c := testClient(t, srvURL)
-	c.issueAuthz = func(agent string, uid int, kind string) error { return nil }
+	c.issueAuthz = func(agent string, uid int, kind, sensitivity, findingRef string) error { return nil }
 	return c
 }
 
@@ -267,7 +267,7 @@ func TestIssueRequestWatcher_AuthzFailsClosed(t *testing.T) {
 
 	// explicit denial (e.g. advisory-mode agent)
 	c2 := testClient(t, srv.URL)
-	c2.issueAuthz = func(agent string, uid int, kind string) error {
+	c2.issueAuthz = func(agent string, uid int, kind, sensitivity, findingRef string) error {
 		return errors.New("agent is advisory-only")
 	}
 	p2, _ := WriteIssueRequest(dir, IssueRequest{Repo: "o/r", Title: "t", Agent: "a"})
@@ -311,7 +311,7 @@ func TestIssueRequestWatcher_AuthzSeesKind(t *testing.T) {
 	defer srv.Close()
 	c := testClient(t, srv.URL)
 	var seen []string
-	c.issueAuthz = func(agent string, uid int, kind string) error {
+	c.issueAuthz = func(agent string, uid int, kind, sensitivity, findingRef string) error {
 		seen = append(seen, kind)
 		return errors.New("deny to stop processing")
 	}
@@ -324,6 +324,29 @@ func TestIssueRequestWatcher_AuthzSeesKind(t *testing.T) {
 	got := strings.Join(seen, ",")
 	if !strings.Contains(got, "issue") || !strings.Contains(got, "comment") {
 		t.Fatalf("authorizer should see both kinds, saw %q", got)
+	}
+}
+
+func TestIssueRequestWatcher_AuthzSeesDisclosureClassification(t *testing.T) {
+	srv := newIssueMockServer(t, "", nil, nil, nil)
+	defer srv.Close()
+	c := testClient(t, srv.URL)
+	var gotSensitivity, gotFindingRef string
+	c.issueAuthz = func(agent string, uid int, kind, sensitivity, findingRef string) error {
+		gotSensitivity = sensitivity
+		gotFindingRef = findingRef
+		return errors.New("deny to stop processing")
+	}
+	dir := withIssueDir(t)
+	_, _ = WriteIssueRequest(dir, IssueRequest{
+		Repo: "o/r", Title: "private security finding", Body: "sensitive reproduction", Agent: "scanner",
+		Sensitivity: "security", FindingRef: "finding-123",
+	})
+
+	c.ProcessIssueRequestsOnce(context.Background())
+
+	if gotSensitivity != "security" || gotFindingRef != "finding-123" {
+		t.Fatalf("authorization saw sensitivity=%q finding_ref=%q", gotSensitivity, gotFindingRef)
 	}
 }
 
@@ -360,7 +383,7 @@ func TestIssueRequestWatcher_StartLoop(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	c.StartIssueRequestWatcher(ctx, func(agent string, uid int, kind string) error { return nil }, nil)
+	c.StartIssueRequestWatcher(ctx, func(agent string, uid int, kind, sensitivity, findingRef string) error { return nil }, nil)
 
 	if _, err := WriteIssueRequest(dir, IssueRequest{
 		Repo: "o/r", Title: "[sec-check] via ticker", Body: "b", Agent: "sec-check",

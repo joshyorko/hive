@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -256,6 +257,10 @@ func cmdUpdate(args []string) {
 			fmt.Fprintf(os.Stderr, "bd update: invalid status %q (valid: open, in_progress, blocked, done, closed)\n", *status)
 			os.Exit(1)
 		}
+		if err := validateCLIStatusTransition(*status); err != nil {
+			fmt.Fprintf(os.Stderr, "bd update: %v\n", err)
+			os.Exit(1)
+		}
 		if err := store.Update(id, func(b *beads.Bead) {
 			b.Status = beads.Status(*status)
 		}); err != nil {
@@ -297,18 +302,38 @@ func cmdUpdate(args []string) {
 // ---------- close ----------
 
 func cmdClose(args []string) {
-	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, "bd close: requires a bead ID")
-		os.Exit(1)
-	}
-
-	store := openStore()
-	id := args[0]
-	if err := store.Close(id); err != nil {
+	if err := closeBead(args); err != nil {
 		fmt.Fprintf(os.Stderr, "bd close: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("Closed bead %s\n", id)
+}
+
+func closeBead(args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("requires a bead ID and authoritative completion receipt")
+	}
+	id := args[0]
+	fs := flag.NewFlagSet("close", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	kind := fs.String("evidence-kind", "", "merged_pr|source_verified|operator_decision|superseded")
+	ref := fs.String("evidence-ref", "", "authoritative receipt reference")
+	actor := fs.String("evidence-actor", "", "receipt actor")
+	if err := fs.Parse(args[1:]); err != nil {
+		return err
+	}
+	store := openStore()
+	if err := store.CloseWithReceipt(id, beads.CompletionReceipt{Kind: *kind, Ref: *ref, Actor: *actor}); err != nil {
+		return err
+	}
+	fmt.Printf("Closed bead %s with %s receipt\n", id, *kind)
+	return nil
+}
+
+func validateCLIStatusTransition(status string) error {
+	if status == "closed" || status == "done" {
+		return fmt.Errorf("terminal status requires 'bd close' with an authoritative completion receipt")
+	}
+	return nil
 }
 
 // ---------- reset ----------
