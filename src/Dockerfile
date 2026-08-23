@@ -78,6 +78,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # stale-binary note in .github/workflows/docker.yml.
 FROM node:26-slim@sha256:4ebb5ace66f15a24c14c492e01a8beeed4fddf970a856109f5126e703e5fe503 AS runtime
 
+LABEL org.opencontainers.image.source="https://github.com/joshyorko/hive"
+
 # --- Layer 1: system packages (rarely changes) ---
 # util-linux provides `setpriv`, used by the entrypoint to drop to `dev` with an
 # AMBIENT CAP_NET_ADMIN (bounding-set gated) so the proxy's SO_MARK egress-gate
